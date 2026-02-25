@@ -14,7 +14,7 @@
       "author": {
         "name": "Stefano Ginella"
       },
-      "source": ".",
+      "source": "./",
       "category": "development",
       "homepage": "https://github.com/stefanoginella/auto-bmad",
       "tags": ["bmad", "pipeline", "automation", "orchestration", "sdlc"]
