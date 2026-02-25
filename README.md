@@ -81,6 +81,12 @@ npx vitest
 
 Outputs a system message at session start listing the required BMAD plugins, so Claude can warn early if a pipeline is invoked without the necessary dependencies.
 
+## Permissions
+
+The pipelines run various bash commands (depending on the project), `WebSearch`, `WebFetch`, `Skill(commit-commands:commit)`, `mcp__plugin_context7_context7__resolve-library-id`, `mcp__plugin_context7_context7__query-docs` that Claude Code will prompt you to approve if they are not already approved. When prompted, you can choose to allow the command and add it to your project's allow list in `.claude/settings.json` or `.claude/settings.local.json`. For the first few runs in a new project, expect several approval prompts as the allow list builds up. After that, things stabilize and the pipelines run fully autonomously.
+
+Alternatively, you can run Claude Code in "dangerously skip permissions" mode (`--dangerously-skip-permissions`), but do so at your own risk — ideally in an isolated environment like a VM or container.
+
 ## Installation
 
 ### From marketplace (recommended)
