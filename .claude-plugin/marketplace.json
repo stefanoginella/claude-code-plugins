@@ -4,7 +4,7 @@
   "description": "Automated BMAD pipeline orchestration plugin for Claude Code",
   "owner": {
     "name": "Stefano Ginella",
-    "url": "https://github.com/stefanoginella"
+    "email": "stefano@stefanoginella.com"
   },
   "plugins": [
     {
@@ -12,12 +12,12 @@
       "description": "Automated (and opinionated) BMAD pipeline orchestration: plan, epic-start, story, and epic-end workflows with configurable safe-bash auto-approval",
       "version": "0.1.0",
       "author": {
-        "name": "Stefano Ginella",
-        "url": "https://github.com/stefanoginella"
+        "name": "Stefano Ginella"
       },
       "source": ".",
       "category": "development",
-      "homepage": "https://github.com/stefanoginella/auto-bmad"
+      "homepage": "https://github.com/stefanoginella/auto-bmad",
+      "tags": ["bmad", "pipeline", "automation", "orchestration", "sdlc"]
     }
   ]
 }
