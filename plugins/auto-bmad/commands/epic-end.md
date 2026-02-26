@@ -45,7 +45,7 @@ Each step MUST run in its own **foreground Task tool call** (subagent_type: "gen
 
 ## Pre-flight
 
-1. Clean `{project_root}/.tmp/` if it exists from a previous failed run.
+1. Clean `{project_root}/.auto-bmad-tmp/` if it exists from a previous failed run and recommend adding it to .gitignore if not already ignored.
 2. Record the starting git commit hash as {{START_COMMIT_HASH}}.
 3. Create a recovery tag: `git tag -f pipeline-end-epic-{{EPIC_ID}}` so the pipeline can be rolled back with `git reset --hard pipeline-end-epic-{{EPIC_ID}}` if needed.
 4. Read `{{implementation_artifacts}}/sprint-status.yaml` and verify:
@@ -252,4 +252,4 @@ After the report is saved, squash all checkpoint commits and create one clean co
 
 # Filesystem Boundary
 
-Agents and coordinator MUST NOT write files outside the project root. For temporary files, use `{project_root}/.tmp/` (created on demand, cleaned by the coordinator after each step completes). Never use `/tmp`, `$TMPDIR`, or other system-level temp directories.
+Agents and coordinator MUST NOT write files outside the project root. For temporary files, use `{project_root}/.auto-bmad-tmp/` (created on demand, cleaned by the coordinator after each step completes). Never use `/tmp`, `$TMPDIR`, or other system-level temp directories.
