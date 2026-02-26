@@ -34,7 +34,7 @@ Then install individual plugins from the **Discover** tab of `/plugin` or direct
 
 ## 🤝 Contributing
 
-Got an idea for a plugin or improvement? Open an issue or submit a PR. Check [CONTRIBUTING.md](./CONTRIBUTING.md) for details.
+Got an idea for a plugin or improvement? Open an issue or submit a PR. Check [CONTRIBUTING.md](./CONTRIBUTING.md) and [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for details.
 
 ## 📄 License
 
