@@ -30,7 +30,7 @@ Then install individual plugins from the **Discover** tab of `/plugin` or direct
 
 | Plugin | Description |
 |--------|-------------|
-| [auto-bmad](./plugins/auto-bmad/README.md) | Automated BMAD pipeline orchestration: plan, epic-start, story, and epic-end workflows with configurable safe-bash auto-approval |
+| [auto-bmad](./plugins/auto-bmad/README.md) | Automated and opinionated BMAD pipeline orchestration |
 
 ## 🤝 Contributing
 
