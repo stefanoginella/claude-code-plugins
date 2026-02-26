@@ -142,7 +142,7 @@ Based on the retro check output, the coordinator categorizes action items by pri
 
 5. **Epic {{EPIC_ID}} Overview Review**: `Read the epic {{EPIC_ID}} section from {{planning_artifacts}}/epics.md (or epics/ directory). For each story in the epic, analyze: (a) story count and IDs, (b) acceptance criteria count per story — flag any story with more than 8 ACs as oversized and recommend splitting, (c) dependency chains between stories — identify which must be sequential vs. can be parallel, (d) any dependencies on other epics (should already be met by completed epics). Also read the architecture docs to identify any design patterns or components this epic introduces that should be established early. Present a prioritized story order with rationale. yolo`
 
-6. **Epic {{EPIC_ID}} Sprint Status Update**: `Read {{implementation_artifacts}}/sprint-status.yaml and update epic-{{EPIC_ID}} status from "backlog" to "in-progress". Do not change any other statuses. Write the updated file. yolo`
+6. **Epic {{EPIC_ID}} Sprint Status Update**: `Read {{implementation_artifacts}}/sprint-status.yaml and update epic-{{EPIC_ID}} status from "backlog" to "in-progress". Do not change any other statuses. Preserve ALL existing content, comments, structure, and STATUS DEFINITIONS when writing the updated file. yolo`
 
 >>> CHECKPOINT: `wip(epic-{{EPIC_ID}}): epic planned and sprint status updated`
 

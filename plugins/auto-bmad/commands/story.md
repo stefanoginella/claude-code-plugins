@@ -84,7 +84,7 @@ Steps that produce values consumed by later steps MUST end their output with a `
 
 Required handoffs:
 - **Step 1 (Create)** → `STORY_FILE: <path>` — consumed by all subsequent steps
-- **Step 7 (Post-Dev Test)** → `TEST_COUNT: <N>` — consumed by step 16 for regression check
+- **Step 8 (Post-Dev Test)** → `TEST_COUNT: <N>` — consumed by step 20 for regression check
 
 ## Progress Reporting
 
@@ -92,13 +92,13 @@ After each step completes, the coordinator MUST print a 1-line progress update b
 
 Format: `Step N/TOTAL: <step-name> — <status>`
 
-TOTAL is the number of pipeline steps for this run (typically 18, or 20 if trace gap recovery triggers). This gives the user continuous visibility into pipeline progress.
+TOTAL is the number of pipeline steps for this run (typically 22, or 24 if trace gap recovery triggers). This gives the user continuous visibility into pipeline progress.
 
 ## Checkpoint Commits
 
 The coordinator creates checkpoint commits at key milestones using the bash command `git add -A && git commit -m "<message>"` directly. Use exact commit messages as shown — these are temporary markers that get squashed at the end. Checkpoints are marked with `>>> CHECKPOINT` below.
 
-**Note:** Checkpoint commits intentionally bypass pre-commit hooks — they are temporary markers that get squashed into the final commit. Linting and formatting are enforced explicitly by dedicated pipeline steps (5 and 13).
+**Note:** Checkpoint commits intentionally bypass pre-commit hooks — they are temporary markers that get squashed into the final commit. Linting and formatting are enforced explicitly by dedicated pipeline steps (6 and 15).
 
 At the end of the pipeline, squash all checkpoint commits into a single clean commit.
 
@@ -138,65 +138,70 @@ Do not proceed and create a checkpoint if the Step 2 (Story Validate) hasn't bee
 
 ## Development
 
-4. **Story {{STORY_ID}} Develop**: `/bmad-bmm-dev-story {{STORY_FILE}} yolo — When implementing, if context7 MCP tools are available (resolve-library-id → query-docs), use them to look up current API patterns for libraries being used rather than relying on training data. Update {{STORY_FILE}} when you're done.`
+4. **Story {{STORY_ID}} Develop**: `/bmad-bmm-dev-story {{STORY_FILE}} yolo — When implementing, if context7 MCP tools are available (resolve-library-id → query-docs), use them to look up current API patterns for libraries being used rather than relying on training data. IMPORTANT — Before marking the story complete and reporting back to the coordinator, you MUST fill in ALL Dev Agent Record fields: set "Agent Model Used" to your actual model name and version (not the template placeholder), add entries to "Completion Notes List" summarizing what was implemented per task, populate "File List" with every file created/modified/deleted (relative paths), and add a Change Log entry summarizing the development session with the date.`
 
-5. **Story {{STORY_ID}} Frontend Polish**
+5. **Story {{STORY_ID}} Post-Dev Artifact Verify**: `Read {{STORY_FILE}} and {{implementation_artifacts}}/sprint-status.yaml. The story key in sprint-status.yaml is the filename stem of {{STORY_FILE}} without the .md extension. The develop step just completed and reported the following: [paste the Step Summary from step 4]. Verify and fix: (a) story file Status field is "review" — if not, set it to "review", (b) sprint-status.yaml entry matching the story key is "review" — if not, update it to "review", (c) all completed tasks in Tasks/Subtasks have [x] checkboxes, (d) File List section has entries for files created/modified (not empty), (e) Change Log section has at least one entry for the development session, (f) "Agent Model Used" in Dev Agent Record is filled in with an actual model name — not the template placeholder "{{agent_model_name_version}}", (g) "Completion Notes List" in Dev Agent Record has at least one entry summarizing what was implemented. For any item that is missing or incorrect, fix it using the context from the develop step's summary above. Preserve ALL existing content, comments, structure, and STATUS DEFINITIONS in both files. yolo`
+
+6. **Story {{STORY_ID}} Frontend Polish**
    - **Skip if:** the story file's `ui_impact` field is explicitly `false`, or the field is absent and the story's acceptance criteria and tasks clearly involve no user-facing UI changes (coordinator reads `{{STORY_FILE}}` to check). Log "No frontend polish needed — backend-only story".
    - **Task prompt:** `/frontend-design:frontend-design yolo — Review and polish the frontend components created or modified by story {{STORY_ID}}. Read {{STORY_FILE}} for context on what was built. Focus on the components touched by this story — improve visual quality, interaction polish, and design consistency while preserving all existing functionality and acceptance criteria.`
 
 ## Post-Development Verification
 
-6. **Story {{STORY_ID}} Post-Dev Lint & Typecheck**: `{{LINT_PROMPT}}`
-7. **Story {{STORY_ID}} Post-Dev Test Verification**: `{{TEST_PROMPT}} and specifically verify that the ATDD acceptance tests now pass. End with a ## Handoff section containing TEST_COUNT: <total number of tests that ran>.`
+7. **Story {{STORY_ID}} Post-Dev Lint & Typecheck**: `{{LINT_PROMPT}}`
+8. **Story {{STORY_ID}} Post-Dev Test Verification**: `{{TEST_PROMPT}} and specifically verify that the ATDD acceptance tests now pass. End with a ## Handoff section containing TEST_COUNT: <total number of tests that ran>.`
 
 >>> CHECKPOINT: `wip({{STORY_ID}}): development complete, lint and tests passing`
 
 ## Early NFR Gate
 
-8. **Story {{STORY_ID}} NFR**: `/bmad-tea-testarch-nfr {{STORY_FILE}} yolo`
+9. **Story {{STORY_ID}} NFR**: `/bmad-tea-testarch-nfr {{STORY_FILE}} yolo`
 
 ## Test Expansion & Review
 
-9. **Story {{STORY_ID}} Test Automate**: `/bmad-tea-testarch-automate {{STORY_FILE}} yolo - if any acceptance criteria are not yet covered by automated tests, generate tests to fill those gaps.`
-10. **Story {{STORY_ID}} Test Review**: `/bmad-tea-testarch-test-review {{STORY_FILE}} yolo - review the story's test suite for completeness, relevance, and quality. Automatically fix any issues found.`
+10. **Story {{STORY_ID}} Test Automate**: `/bmad-tea-testarch-automate {{STORY_FILE}} yolo - if any acceptance criteria are not yet covered by automated tests, generate tests to fill those gaps.`
+11. **Story {{STORY_ID}} Test Review**: `/bmad-tea-testarch-test-review {{STORY_FILE}} yolo - review the story's test suite for completeness, relevance, and quality. Automatically fix any issues found.`
 
 >>> CHECKPOINT: `wip({{STORY_ID}}): NFR checked, test suite expanded and reviewed`
 
 ## Code Reviews (iterative)
 
-11. **Story {{STORY_ID}} Code Review #1**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. Update {{STORY_FILE}} when you're done. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
-12. **Story {{STORY_ID}} Code Review #2**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. Update {{STORY_FILE}} when you're done. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
-13. **Story {{STORY_ID}} Code Review #3**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. Additionally, use any available security guidance tools to check for OWASP top 10 vulnerabilities, authentication/authorization flaws, and injection risks. Update {{STORY_FILE}} when you're done. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
+12. **Story {{STORY_ID}} Code Review #1**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
+13. **Story {{STORY_ID}} Review #1 Artifact Verify**: `Read {{STORY_FILE}}. Code review #1 just completed and reported: [paste the Step Summary from step 12]. Verify and fix: (a) the story file contains a "## Code Review Record" section — if not, create it after the "## Dev Agent Record" section, (b) the Code Review Record contains an entry for review pass #1 with date, reviewer model, issue counts by severity, and outcome — if not, add one using the step summary context above, (c) if the code review created action items or "Review Follow-ups (AI)" tasks, verify they appear in Tasks/Subtasks. Preserve ALL existing content. yolo`
+14. **Story {{STORY_ID}} Code Review #2**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
+15. **Story {{STORY_ID}} Review #2 Artifact Verify**: `Read {{STORY_FILE}}. Code review #2 just completed and reported: [paste the Step Summary from step 14]. Verify and fix: (a) the "## Code Review Record" section contains an entry for review pass #2 — if not, add one using the step summary context above with date, issue counts by severity, and outcome, (b) the entry is distinct from the pass #1 entry (not a duplicate), (c) if the code review resolved previous action items, verify their checkboxes are marked [x]. Preserve ALL existing content. yolo`
+16. **Story {{STORY_ID}} Code Review #3**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. Additionally, use any available security guidance tools to check for OWASP top 10 vulnerabilities, authentication/authorization flaws, and injection risks. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
+17. **Story {{STORY_ID}} Review #3 Artifact Verify**: `Read {{STORY_FILE}} and {{implementation_artifacts}}/sprint-status.yaml. The story key in sprint-status.yaml is the filename stem of {{STORY_FILE}} without the .md extension. Code review #3 (final) just completed and reported: [paste the Step Summary from step 16]. Verify and fix: (a) the "## Code Review Record" section contains an entry for review pass #3 — if not, add one using the step summary context above with date, issue counts by severity, and outcome, (b) there are exactly 3 distinct review entries in the Code Review Record, (c) story file Status is "done" — if not, set it to "done", (d) sprint-status.yaml entry matching the story key is "done" — if not, update it to "done". Preserve ALL existing content, comments, structure, and STATUS DEFINITIONS in both files. yolo`
 
 ## Security Scan
 
-14. **Story {{STORY_ID}} Security Scan**
+18. **Story {{STORY_ID}} Security Scan**
    - **Skip if:** `semgrep` is not installed (coordinator runs `which semgrep` before launching the Task; if it exits non-zero, skip). Log "semgrep not installed — skipping security scan".
    - **Task prompt:** `Run semgrep security scan on all files created or modified by this story. Check for OWASP top 10 vulnerabilities, injection flaws, insecure patterns, and security anti-patterns. Automatically fix all issues found. Refer to the story file at {{STORY_FILE}} for context on what was built. yolo`
 
 ## Post-Review Regression
 
-15. **Story {{STORY_ID}} Regression Lint & Typecheck**: `{{LINT_PROMPT}}`
-16. **Story {{STORY_ID}} Regression Test**: `{{TEST_PROMPT}} The post-dev test count was {{POST_DEV_TEST_COUNT}}. Verify the total test count has NOT decreased — if it has, STOP and report a test count regression (tests may have been deleted or disabled by code review fixes). End with a ## Handoff section containing TEST_COUNT: <total number of tests that ran>.`
+19. **Story {{STORY_ID}} Regression Lint & Typecheck**: `{{LINT_PROMPT}}`
+20. **Story {{STORY_ID}} Regression Test**: `{{TEST_PROMPT}} The post-dev test count was {{POST_DEV_TEST_COUNT}}. Verify the total test count has NOT decreased — if it has, STOP and report a test count regression (tests may have been deleted or disabled by code review fixes). End with a ## Handoff section containing TEST_COUNT: <total number of tests that ran>.`
 
 >>> CHECKPOINT: `wip({{STORY_ID}}): code reviews complete, security scanned, regression passing`
 
 ## Quality Gates
 
-17. **Story {{STORY_ID}} E2E**
+21. **Story {{STORY_ID}} E2E**
     - **Skip if:** the story file's `ui_impact` field is explicitly `false`, or the field is absent and the story's acceptance criteria and tasks clearly involve no user-facing UI changes (coordinator reads `{{STORY_FILE}}` to check). Log "No E2E tests needed — backend-only story".
     - **Task prompt:** `/bmad-bmm-qa-generate-e2e-tests {{STORY_FILE}} yolo — generate E2E tests for this story's user-facing UI changes.`
-18. **Story {{STORY_ID}} Trace**: `/bmad-tea-testarch-trace {{STORY_FILE}} yolo — if traceability analysis reveals acceptance criteria with no test coverage, list the gaps explicitly in your Step Summary under **Uncovered ACs** so the report captures them.`
+22. **Story {{STORY_ID}} Trace**: `/bmad-tea-testarch-trace {{STORY_FILE}} yolo — if traceability analysis reveals acceptance criteria with no test coverage, list the gaps explicitly in your Step Summary under **Uncovered ACs** so the report captures them.`
 
 ### Trace Gap Recovery
 
-If step 18 reports uncovered acceptance criteria, run one recovery pass:
+If step 22 reports uncovered acceptance criteria, run one recovery pass:
 
-19. **Story {{STORY_ID}} Trace Gap Fill**: `/bmad-tea-testarch-automate {{STORY_FILE}} yolo - generate tests ONLY for these specific uncovered acceptance criteria: [list ACs from step 18 output]. Do not duplicate existing tests.`
+23. **Story {{STORY_ID}} Trace Gap Fill**: `/bmad-tea-testarch-automate {{STORY_FILE}} yolo - generate tests ONLY for these specific uncovered acceptance criteria: [list ACs from step 22 output]. Do not duplicate existing tests.`
 
 Then re-run traceability:
 
-20. **Story {{STORY_ID}} Trace Re-check**: `/bmad-tea-testarch-trace {{STORY_FILE}} yolo`
+24. **Story {{STORY_ID}} Trace Re-check**: `/bmad-tea-testarch-trace {{STORY_FILE}} yolo`
 
 If gaps remain after re-check, note them in the report as known gaps but do not loop further.
 

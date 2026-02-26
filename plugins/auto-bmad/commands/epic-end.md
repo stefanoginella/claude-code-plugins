@@ -93,7 +93,7 @@ After each step completes, the coordinator MUST print a 1-line progress update b
 
 Format: `Step N/TOTAL: <step-name> — <status>`
 
-TOTAL is 10 for this pipeline. This gives the user continuous visibility into pipeline progress.
+TOTAL is 11 for this pipeline. This gives the user continuous visibility into pipeline progress.
 
 ## Checkpoint Commits
 
@@ -138,16 +138,18 @@ If the completion check reports incomplete stories, the coordinator asks the use
 
 ## Sprint Status Update
 
-7. **Epic {{EPIC_ID}} Status Update**: `Read {{implementation_artifacts}}/sprint-status.yaml and update: (a) epic-{{EPIC_ID}} status to "done", (b) epic-{{EPIC_ID}}-retrospective status to "done". Do not change any other statuses. Write the updated file. yolo`
+7. **Epic {{EPIC_ID}} Status Update**: `Read {{implementation_artifacts}}/sprint-status.yaml and update: (a) epic-{{EPIC_ID}} status to "done", (b) epic-{{EPIC_ID}}-retrospective status to "done". Do not change any other statuses. Preserve ALL existing content, comments, structure, and STATUS DEFINITIONS when writing the updated file. yolo`
+
+8. **Epic {{EPIC_ID}} Epic-End Artifact Verify**: `Read {{implementation_artifacts}}/sprint-status.yaml and search for retrospective files at {{auto_bmad_artifacts}}/epic-{{EPIC_ID}}-retro-*.md and {{implementation_artifacts}}/epic-{{EPIC_ID}}-retro-*.md. The retrospective step reported: [paste the Step Summary from step 6], and the status update step reported: [paste the Step Summary from step 7]. Verify and fix: (a) a retrospective file for epic {{EPIC_ID}} exists — if not, report it as missing so the coordinator can note it in the report, (b) sprint-status.yaml entry for epic-{{EPIC_ID}} is "done" — if not, set it to "done", (c) sprint-status.yaml entry for epic-{{EPIC_ID}}-retrospective is "done" — if not, set it to "done", (d) all story entries for epic {{EPIC_ID}} in sprint-status.yaml are "done" — if any are not, list them with their current status (do not change story statuses here, just report). Preserve ALL existing content, comments, structure, and STATUS DEFINITIONS in sprint-status.yaml. yolo`
 
 ## Next Epic Preview
 
-8. **Epic {{EPIC_ID}} Next Epic Preview**: `Read {{planning_artifacts}}/epics.md (or epics/ directory) and find epic {{NEXT_EPIC_ID}}. If it exists, provide: (a) epic title and description, (b) number of stories and their IDs, (c) dependencies on completed epics — verify each dependency is met based on sprint-status.yaml, (d) any new technical requirements or patterns this epic introduces, (e) any action items from the epic {{EPIC_ID}} retrospective that must be addressed before starting epic {{NEXT_EPIC_ID}}. If epic {{NEXT_EPIC_ID}} does not exist, report "No next epic — this was the final epic in the sprint plan". yolo`
+9. **Epic {{EPIC_ID}} Next Epic Preview**: `Read {{planning_artifacts}}/epics.md (or epics/ directory) and find epic {{NEXT_EPIC_ID}}. If it exists, provide: (a) epic title and description, (b) number of stories and their IDs, (c) dependencies on completed epics — verify each dependency is met based on sprint-status.yaml, (d) any new technical requirements or patterns this epic introduces, (e) any action items from the epic {{EPIC_ID}} retrospective that must be addressed before starting epic {{NEXT_EPIC_ID}}. If epic {{NEXT_EPIC_ID}} does not exist, report "No next epic — this was the final epic in the sprint plan". yolo`
 
 ## Project Context Refresh
 
-9. **Epic {{EPIC_ID}} Project Context Refresh**: `/bmad-bmm-generate-project-context yolo — rescan the codebase and regenerate {{output_folder}}/project-context.md to reflect the current state after all epic work.`
-10. **Epic {{EPIC_ID}} Improve CLAUDE.md**: `/claude-md-management:claude-md-improver yolo — audit and improve CLAUDE.md using the freshly generated {{output_folder}}/project-context.md as reference. IMPORTANT: CLAUDE.md must NOT duplicate content that already exists in project-context.md, since project-context.md is automatically loaded by all BMAD workflows. Focus CLAUDE.md on high-level pointers, setup instructions, and anything NOT covered by project-context.md. Remove any overlapping rules, conventions, or patterns that are already in project-context.md.`
+10. **Epic {{EPIC_ID}} Project Context Refresh**: `/bmad-bmm-generate-project-context yolo — rescan the codebase and regenerate {{output_folder}}/project-context.md to reflect the current state after all epic work.`
+11. **Epic {{EPIC_ID}} Improve CLAUDE.md**: `/claude-md-management:claude-md-improver yolo — audit and improve CLAUDE.md using the freshly generated {{output_folder}}/project-context.md as reference. IMPORTANT: CLAUDE.md must NOT duplicate content that already exists in project-context.md, since project-context.md is automatically loaded by all BMAD workflows. Focus CLAUDE.md on high-level pointers, setup instructions, and anything NOT covered by project-context.md. Remove any overlapping rules, conventions, or patterns that are already in project-context.md.`
 
 >>> CHECKPOINT: `wip(epic-{{EPIC_ID}}-end): status updated, next epic previewed, project context refreshed`
 
