@@ -38,7 +38,7 @@ The step MUST run in its own **foreground Task tool call** (subagent_type: "gene
 **CRITICAL — Tool usage rules:**
 - **DO** use the Task tool (foreground, default mode) for the step. It blocks and returns the result.
 - **DO NOT** use TeamCreate, SendMessage, TaskOutput, TaskCreate, or TaskList.
-- **DO NOT** execute any step yourself — always delegate to a Task agent.
+- **DO NOT** execute any step, fix, or implement new code yourself — always delegate to a Task agent.
 
 **Retry policy:** If the step fails, retry it **once**. If the retry also fails, stop and report to the user.
 

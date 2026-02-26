@@ -37,7 +37,7 @@ Each step MUST run in its own **foreground Task tool call** (subagent_type: "gen
 - **DO** use the Task tool (foreground, default mode) for each step. It blocks and returns the result.
 - **DO NOT** use TeamCreate, SendMessage, TaskOutput, TaskCreate, or TaskList. This is a sequential pipeline, not a team collaboration.
 - **DO NOT** launch multiple Task calls simultaneously. Wait for each to return before launching the next.
-- **DO NOT** execute any step yourself — always delegate to a Task agent.
+- **DO NOT** execute any step, fix, or implement new code yourself — always delegate to a Task agent.
 
 **Retry policy:** If a step fails, retry it **once**. If the retry also fails, stop the pipeline, save a partial report with the failure details, and report to the user which step failed and why.
 
