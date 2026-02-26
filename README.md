@@ -18,13 +18,13 @@ I'm a freelance developer exploring what AI-assisted development can actually lo
 Add the marketplace from the **Marketplace** tab of `/plugin` or directly:
 
 ```
-/plugin marketplace add stefanoginella/auto-bmad
+/plugin marketplace add stefanoginella/claude-code-plugins
 ```
 
 Then install individual plugins from the **Discover** tab of `/plugin` or directly:
 
 ```
-/plugin install auto-bmad@auto-bmad-marketplace
+/plugin install auto-bmad@claude-code-plugins
 ```
 
 ## 🔌 Available Plugins
