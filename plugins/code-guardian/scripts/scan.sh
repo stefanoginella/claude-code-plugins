@@ -231,7 +231,7 @@ for scanner in "${scanners_to_run[@]}"; do
   scanner_docker_image=$(get_tool_docker_image "$scanner")
   findings_file=$(
     CG_DOCKER_IMAGE="$scanner_docker_image" \
-    bash "$SCANNER_SCRIPT" "${SCANNER_ARGS[@]}" | tail -1
+    bash "$SCANNER_SCRIPT" ${SCANNER_ARGS[@]+"${SCANNER_ARGS[@]}"} | tail -1
   ) || scanner_exit=$?
 
   if [[ $scanner_exit -eq 2 ]]; then
