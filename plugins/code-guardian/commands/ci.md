@@ -16,7 +16,18 @@ Generate CI/CD pipeline configuration for security scanning based on the project
 
 ## Execution Flow
 
-### Step 1: Detect Stack
+### Step 1: Check Cache
+
+Try to load cached detection results before running full detection:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --read --max-age 86400
+```
+
+- **Exit 0** (fresh cache): Parse the returned JSON to extract `stack` and `tools` fields. Use cached stack data — tell the user "Using cached stack detection" and **skip Step 1.5**. Save the tools data for use in Step 5.
+- **Exit 1 or 2** (missing/stale): Continue to Step 1.5 for fresh detection.
+
+### Step 1.5: Detect Stack
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh .
@@ -48,7 +59,13 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/ci-recommend.sh \
 
 ### Step 5: Present and Write
 
-Present the generated configuration to the user. Ask if they want to:
+Present the generated configuration to the user.
+
+If tools data was loaded from the cache (Step 1), include a summary showing which tools the user already has locally versus which will be CI-only:
+> **Your local setup**: semgrep (Docker), gitleaks (local), ...
+> **CI will add**: trivy, checkov, ... (not available locally)
+
+Ask if they want to:
 
 1. **Write to file**: Create/update the CI config file directly
 2. **View only**: Just display it for manual copy

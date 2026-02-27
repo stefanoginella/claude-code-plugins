@@ -26,6 +26,17 @@ Display detected stack summary.
 echo '<stack_json>' | bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-tools.sh
 ```
 
+### Step 2.5: Cache Detection Results
+
+Save the stack and tools detection results so that future scan/ci commands can reuse them without re-detecting:
+
+```bash
+echo '<stack_json>' > /tmp/cg-stack.json
+echo '<tools_json>' > /tmp/cg-tools.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --write \
+  --stack-file /tmp/cg-stack.json --tools-file /tmp/cg-tools.json
+```
+
 ### Step 3: Present Report
 
 Show a clear table of all needed tools:
@@ -63,6 +74,19 @@ Report final status as a table showing:
 - Available tools (Docker or local) — ready to use
 - Skipped tools — will be excluded from scans
 - Failed installations — with troubleshooting hints
+
+### Step 5.5: Update Cache
+
+After verification, overwrite the cache with the updated tools data (post-install results):
+
+```bash
+echo '<stack_json>' > /tmp/cg-stack.json
+echo '<verified_tools_json>' > /tmp/cg-tools.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --write \
+  --stack-file /tmp/cg-stack.json --tools-file /tmp/cg-tools.json
+```
+
+Tell the user: "Tool availability cached. Future scans will reuse these results (valid for 24 hours)."
 
 ## Important Notes
 

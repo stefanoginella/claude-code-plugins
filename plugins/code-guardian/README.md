@@ -8,13 +8,13 @@ Deterministic security scanning layer for Claude Code.
 
 Auto-detects your project's tech stack and runs appropriate open-source CLI tools (SAST, secret detection, dependency auditing, container and IaC scanning) to find and fix vulnerabilities. Every tool is free for private repositories, runs via Docker when available, and produces a unified findings format so Claude can process results consistently. Two modes: **interactive** (review findings and choose what to fix) or **yolo** (auto-fix everything possible, then let Claude handle the rest).
 
-> 🔧 The plugin ships 15 scanner wrappers and 4 orchestration scripts. The actual security analysis is deterministic (real CLI tools, not AI guessing) — Claude orchestrates the flow and handles the code-level fixes that tools can't auto-fix.
+> 🔧 The plugin ships 18 scanner wrappers and 4 orchestration scripts. The actual security analysis is deterministic (real CLI tools, not AI guessing) — Claude orchestrates the flow and handles the code-level fixes that tools can't auto-fix.
 
 ## 🚀 Commands
 
 | Command | Description |
 |---------|-------------|
-| `/code-guardian:code-guardian-scan` | Main security scan — choose mode (interactive/yolo) and scope (codebase, staged, unstaged, untracked, unpushed, all-changes) |
+| `/code-guardian:code-guardian-scan` | Main security scan — choose mode (interactive/yolo) and scope (codebase, uncommitted, unpushed) |
 | `/code-guardian:code-guardian-setup` | Check which security tools are available for the detected stack, install missing ones |
 | `/code-guardian:code-guardian-ci` | Generate CI security pipeline configuration for GitHub Actions, GitLab CI, or other systems |
 
@@ -26,7 +26,7 @@ Auto-detects your project's tech stack and runs appropriate open-source CLI tool
 4. **Let the tools and Claude fix things** — tools with autofix support (Semgrep, ESLint, npm audit) handle what they can, and the security-fixer agent takes care of the rest with targeted code-level fixes.
 5. **Run `/code-guardian:code-guardian-ci`** to add security scanning to your CI pipeline if you haven't already.
 
-> ℹ️ **Scope options**: `codebase` (everything), `staged`, `unstaged`, `untracked`, `unpushed` (compared against a base ref you choose), or `all-changes` (staged + unstaged + untracked). For `unpushed`, you can compare against the default branch or the remote tracking branch.
+> ℹ️ **Scope options**: `codebase` (all tracked files), `uncommitted` (all local uncommitted work — staged + unstaged + untracked), or `unpushed` (all commits not yet pushed, compared against a base ref you choose).
 
 ## 🔍 Scan Modes
 
@@ -57,7 +57,10 @@ All tools are free, open-source, and work on private repositories with no limita
 | SAST | gosec | Go | No | `securego/gosec` |
 | SAST | Brakeman | Ruby/Rails | No | `presidentbeef/brakeman` |
 | SAST | ESLint (security) | JS/TS | Partial | — |
+| SAST | PHPStan | PHP | No | `ghcr.io/phpstan/phpstan` |
 | Secrets | Gitleaks | All | No | `zricethezav/gitleaks` |
+| Secrets | TruffleHog | All (filesystem + git) | No | `trufflesecurity/trufflehog` |
+| Dependencies | OSV-Scanner | All ecosystems | No | `ghcr.io/google/osv-scanner` |
 | Dependencies | npm audit | JS/TS | Yes | — |
 | Dependencies | pip-audit | Python | Yes | — |
 | Dependencies | cargo-audit | Rust | No | — |
@@ -113,11 +116,12 @@ code-guardian/
 │   ├── lib/               # Shared utilities and tool registry
 │   │   ├── common.sh      # Colors, logging, container detection, scope management
 │   │   └── tool-registry.sh  # Stack → tools mapping, install commands, Docker images
-│   ├── scanners/          # 15 individual scanner wrappers (unified JSONL output)
+│   ├── scanners/          # 18 individual scanner wrappers (unified JSONL output)
 │   ├── detect-stack.sh    # Detects languages, frameworks, Docker, CI, IaC
 │   ├── check-tools.sh     # Checks tool availability (container + Docker + local)
 │   ├── scan.sh            # Main scan orchestrator
-│   └── ci-recommend.sh    # CI config generator
+│   ├── ci-recommend.sh    # CI config generator
+│   └── cache-state.sh     # Cache I/O for stack + tools detection results
 └── .claude-plugin/
     └── plugin.json
 ```
@@ -143,6 +147,15 @@ The unified finding format:
 ```
 
 This means Claude always gets findings in the same shape regardless of which tool produced them — consistent processing, no tool-specific parsing logic in the AI layer.
+
+### State Caching
+
+The plugin caches stack detection and tool availability results in `.claude/code-guardian-cache.json` (already gitignored). This avoids re-running container probing, Docker checks, and binary lookups on every command.
+
+- **`setup`** writes the cache after detecting the stack and verifying tools
+- **`scan`** and **`ci`** read from the cache if it's fresh (< 24 hours), skipping re-detection
+- Cache is invalidated automatically if it's older than 24 hours or the project path changes
+- Use `--refresh` on the scan command to bypass the cache and force re-detection
 
 ## 🔐 Permissions
 

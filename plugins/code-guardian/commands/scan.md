@@ -1,7 +1,7 @@
 ---
 name: security-guardian-scan
 description: Run security scan on the codebase using detected stack-appropriate tools
-argument-hint: "[--mode interactive|yolo] [--scope codebase|staged|unstaged|untracked|unpushed|all-changes]"
+argument-hint: "[--mode interactive|yolo] [--scope codebase|uncommitted|unpushed] [--refresh]"
 allowed-tools:
   - Bash
   - Read
@@ -20,14 +20,28 @@ Run a comprehensive security scan using open-source CLI tools appropriate for th
 
 ### Step 1: Parse Arguments
 
-Check if the user provided arguments. Parse `--mode` (interactive or yolo) and `--scope` (codebase, staged, unstaged, untracked, unpushed, all-changes) from the command arguments: `$ARGUMENTS`.
+Check if the user provided arguments. Parse `--mode` (interactive or yolo), `--scope` (codebase, uncommitted, unpushed), and `--refresh` from the command arguments: `$ARGUMENTS`.
 
-If not provided, ask the user:
+If mode or scope not provided, ask the user:
 
 Use AskUserQuestion to ask:
 1. **Mode**: "Which scan mode?" — interactive (review findings and choose what to fix) or yolo (auto-fix everything possible, then fix the rest)
-2. **Scope**: "What scope to scan?" — codebase (everything), staged, unstaged, untracked, unpushed, all-changes (staged+unstaged+untracked)
+2. **Scope**: "What scope to scan?" — codebase (all tracked files), uncommitted (staged + unstaged + untracked — all local uncommitted work), unpushed (all commits not yet pushed to remote)
 3. If scope is "unpushed", also ask: "Compare against which base?" — options: default branch (origin/main or origin/master), remote tracking branch, or custom ref
+
+### Step 1.5: Check Cache
+
+Unless `--refresh` was passed, try to load cached detection results:
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --read --max-age 86400
+```
+
+- **Exit 0** (fresh cache): Parse the returned JSON to extract `stack` and `tools` fields. Use these as the stack and tools data — tell the user "Using cached detection results" and **skip Steps 2–3**, jumping directly to Step 4.
+- **Exit 2** (stale): Log "Cached results are stale, re-detecting..." and continue to Steps 2–3.
+- **Exit 1** (missing/invalid): Continue to Steps 2–3 (normal behavior).
+
+If `--refresh` was passed, skip the cache check entirely and proceed to Steps 2–3.
 
 ### Step 2: Detect Stack
 
@@ -46,6 +60,17 @@ echo '<stack_json>' | bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-tools.sh
 ```
 
 Report which tools are available (Docker or local) and which are missing.
+
+### Step 3.5: Write Cache
+
+If Steps 2–3 ran (i.e., cache was not used), save the fresh detection results for future commands:
+
+```bash
+echo '<stack_json>' > /tmp/cg-stack.json
+echo '<tools_json>' > /tmp/cg-tools.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --write \
+  --stack-file /tmp/cg-stack.json --tools-file /tmp/cg-tools.json
+```
 
 **If mode is INTERACTIVE and tools are missing**:
 For each missing tool, use AskUserQuestion with these options:
@@ -122,7 +147,7 @@ If the project has no CI security scanning configured (or has CI but no security
 
 ## Important Notes
 
-- Always run `detect-stack.sh` first — never assume the stack
+- Use cached detection results when available; run `detect-stack.sh` fresh when cache is missing, stale, or `--refresh` is passed
 - Never modify files outside the project directory
 - For secret findings, NEVER display the actual secret value in output
 - When fixing code, explain what vulnerability you're addressing and why the fix works
