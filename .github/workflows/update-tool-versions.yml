@@ -14,6 +14,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
 
       - name: Check for tool updates
         id: check
@@ -73,7 +75,7 @@ jobs:
           if git ls-remote --exit-code origin "refs/heads/${branch}" >/dev/null 2>&1; then
             git fetch origin "${branch}"
             git checkout "${branch}"
-            git reset --hard origin/main
+            git reset --hard "origin/${{ github.event.repository.default_branch }}"
           else
             git checkout -b "${branch}"
           fi
@@ -83,7 +85,7 @@ jobs:
           git add plugins/code-guardian/scripts/lib/tool-registry.sh plugins/code-guardian/scripts/ci-recommend.sh
           git commit -m "chore: update pinned tool versions" \
             -m "Automated weekly check for new releases of security tools."
-          git push -u origin "${branch}"
+          git push --force-with-lease -u origin "${branch}"
 
           # Create or update PR
           existing_pr=$(gh pr list --head "${branch}" --json number --jq '.[0].number' || true)
