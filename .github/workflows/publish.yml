@@ -55,8 +55,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
-          registry-url: https://registry.npmjs.org
+          node-version: lts/*
 
       - name: Prepublish
         run: bash scripts/prepublish.sh ${{ matrix.plugin }}
@@ -76,5 +75,3 @@ jobs:
       - name: Publish
         working-directory: packages/${{ matrix.plugin }}
         run: npm publish --provenance --access public --tag ${{ steps.tag.outputs.tag }}
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
