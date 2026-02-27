@@ -17,6 +17,10 @@ Read `_bmad/bmm/config.yaml` and `_bmad/tea/config.yaml` and set the following v
 
 All paths in this command that reference BMAD output directories MUST use these variables — never hardcode `_bmad-output` paths.
 
+# Load Project Context
+
+Read `{{output_folder}}/project-context.md` if it exists. This gives you general context about the project — its purpose, stack, conventions, and current state. Use this context to make informed decisions throughout the pipeline.
+
 # Detect Story ID
 
 A story ID is composed by exactly 2 numbers: the epic number and the story number within that epic, separated by a dash, a dot, or a space. For example, "1-1" would be the first story in the first epic, "2-3" would be the third story in the second epic, and so on. A story ID can also be inferred from the path name if a path is provided when launching the workflow (e.g., `{{implementation_artifacts}}/1-2-authentication-system.yaml` would set the story ID to "1-2").
@@ -27,11 +31,11 @@ IF user provides epic-story number (e.g. 1-1, 1-2, 2.1, 2.2, etc.) or a file pat
 THEN set {{STORY_ID}} to the provided epic-story number (always a single story).
 ELSE ask to provide a epic-story number to identify the story to work on and set {{STORY_ID}} to the provided value.
 
-# Process
+# Story Pipeline
 
-Run the BMAD story pipeline for story {{STORY_ID}} as a sequence of steps (create, validate, ATDD, develop, lint/test, NFR, test expansion, test review, code reviews, regression, E2E, trace, and commit).
+Run the BMAD story pipeline for story {{STORY_ID}} as a minimal sequence of BMAD slash commands — lightweight orchestration with git safety, no reports.
 
-Each step MUST run in its own **foreground Task tool call** (subagent_type: "general-purpose") so that each agent gets a fresh context window. The Task tool in foreground mode blocks until the agent completes and returns its result directly — use this return value to determine success/failure before proceeding to the next step.
+Each step MUST run in its own **foreground Task tool call** (subagent_type: "general-purpose") so that each agent gets a fresh context window.
 
 **CRITICAL — Tool usage rules:**
 - **DO** use the Task tool (foreground, default mode) for each step. It blocks and returns the result.
@@ -39,257 +43,164 @@ Each step MUST run in its own **foreground Task tool call** (subagent_type: "gen
 - **DO NOT** launch multiple Task calls simultaneously. Wait for each to return before launching the next.
 - **DO NOT** execute any step, fix, or implement new code yourself — always delegate to a Task agent.
 
-**Retry policy:** If a step fails, retry it **once**. If the retry also fails, stop the pipeline, save a partial report with the failure details, and report to the user which step failed and why.
-
-**`yolo` suffix:** Every step prompt ends with `yolo` to bypass agent confirmation prompts for fully autonomous execution, using the available context to take the best decisions. Quality is ensured by the multi-pass review and regression structure of the pipeline, not by per-step human approval.
+**Retry policy:** If a step fails, run `git reset --hard HEAD` to discard its partial changes, then retry **once**. If the retry also fails, stop the pipeline and tell the user:
+- Which step failed and why
+- Recovery commands: `git reset --hard {{START_COMMIT_HASH}}` to roll back the entire pipeline, or `git reset --hard HEAD` to retry the failed step.
 
 ## Pre-flight
 
-1. Clean `{project_root}/.auto-bmad-tmp/` if it exists from a previous failed run and recommend adding it to .gitignore if not already ignored.
-2. Record the starting git commit hash for the report as {{START_COMMIT_HASH}}
-3. Create a recovery tag: `git tag -f pipeline-start-{{STORY_ID}}` so the entire pipeline can be rolled back with `git reset --hard pipeline-start-{{STORY_ID}}` if needed.
+Record before running any steps:
+- `{{START_TIME}}` — current date+time in ISO 8601 format (e.g. `2026-02-26T14:30:00`)
+- `{{START_COMMIT_HASH}}` — run `git rev-parse --short HEAD` and store the result
 
 ## Story File Path Resolution
 
-After the "Create" step succeeds, extract `STORY_FILE` from its `## Handoff` section (see Handoff Protocol) and set {{STORY_FILE}} to that value. All subsequent steps use {{STORY_FILE}} instead of `story {{STORY_ID}}` to avoid redundant file discovery.
-
-## Failure & Recovery
-
-If the pipeline fails after retries and stops:
-1. Save a partial report (see Report section) noting which step failed.
-2. Print the recovery tag: `To roll back all changes: git reset --hard pipeline-start-{{STORY_ID}}`
-3. Print the partial report path so the user can review what happened.
-
-Do NOT automatically roll back — leave the working tree as-is so the user can inspect and decide.
-
-# Pipeline Introduction
-
-Each step is a separate foreground Task call with these parameters:
-
-| Parameter | Value |
-|-----------|-------|
-| `description` | The step name (e.g., "Story 2-5 Create") |
-| `subagent_type` | `general-purpose` |
-| `prompt` | The step's prompt text (in backticks below), with the Step Output Format appended |
-
-## Step Output Format
-
-Append the following to every Task prompt so the coordinator gets structured output for the report:
-
-> When you are done, end your response with a `## Step Summary` section containing: **Status** (success/failure), **Duration** (wall-clock time from start to finish of your work, approximate), **What changed** (files created/modified/deleted), **Key decisions** (any non-obvious choices made), **Issues found & fixed** (count and brief description), **Remaining concerns** (if any), **Migrations** (if any Alembic migrations were created, list the file path and what it does).
-
-## Handoff Protocol
-
-Steps that produce values consumed by later steps MUST end their output with a `## Handoff` section (after `## Step Summary`) containing key-value pairs. The coordinator extracts these values and injects them into downstream step prompts.
-
-Required handoffs:
-- **Step 1 (Create)** → `STORY_FILE: <path>` — consumed by all subsequent steps
-- **Step 8 (Post-Dev Test)** → `TEST_COUNT: <N>` — consumed by step 20 for regression check
-
-## Progress Reporting
-
-After each step completes, the coordinator MUST print a 1-line progress update before launching the next step:
-
-Format: `Step N/TOTAL: <step-name> — <status>`
-
-TOTAL is the number of pipeline steps for this run (typically 22, or 24 if trace gap recovery triggers). This gives the user continuous visibility into pipeline progress.
-
-## Checkpoint Commits
-
-The coordinator creates checkpoint commits at key milestones using the bash command `git add -A && git commit -m "<message>"` directly. Use exact commit messages as shown — these are temporary markers that get squashed at the end. Checkpoints are marked with `>>> CHECKPOINT` below.
-
-**Note:** Checkpoint commits intentionally bypass pre-commit hooks — they are temporary markers that get squashed into the final commit. Linting and formatting are enforced explicitly by dedicated pipeline steps (6 and 15).
-
-At the end of the pipeline, squash all checkpoint commits into a single clean commit.
+After step 1 (Create) succeeds, glob `{{implementation_artifacts}}/{{STORY_ID}}-*.md` to find the story file and set {{STORY_FILE}} to its path. If the story file already existed (step 1 was skipped), set {{STORY_FILE}} the same way. All subsequent steps use {{STORY_FILE}}.
 
 # Pipeline Steps
 
-## Lint & Test Prompt Templates
-
-To reduce duplication, the following prompt fragments are referenced by multiple steps. Substitute `{{PHASE}}` with the step's phase name (e.g., "Post-Dev", "Regression").
-
-**{{LINT_PROMPT}}**: `Run the project's linters, formatters, type-checkers, and migration integrity checks. This is a Docker-based project — all commands MUST run inside Docker containers (e.g., docker compose exec backend …, docker compose exec frontend …). NEVER run linters, formatters, or type-checkers directly on the host. Refer to {{output_folder}}/project-context.md or CLAUDE.md for exact commands. Automatically fix all issues - yolo`
-
-**{{TEST_PROMPT}}**: `Run all tests and verify that all tests pass. This is a Docker-based project — all commands MUST run inside Docker containers (e.g., docker compose exec backend …, docker compose exec frontend …). NEVER run pytest, vitest, or any test runner directly on the host. Refer to {{output_folder}}/project-context.md or CLAUDE.md for exact commands. Automatically fix any failures - yolo`
-
-## Skip Condition Evaluation
-
-The coordinator evaluates all skip conditions **before** launching each Task, using pre-flight data and prior step outputs. If a skip condition is met, the coordinator logs the skip reason in the progress report and moves to the next step — no Task agent is launched.
-
-When a step is skipped, the coordinator still records it in the report with status "skipped" and the reason.
+After each successful step, the coordinator runs `git add -A && git commit --no-verify -m "wip({{STORY_ID}}): step N/12 <step-name> - done"` and prints a 1-line progress update: `Step N/12: <step-name> — <status>`. The coordinator must also track a running list of `(step_name, status, start_time, end_time)` — note the wall-clock time before and after each Task call to use in the final report.
 
 ## Story Creation & Validation
 
-Do not proceed and create a checkpoint if the Step 2 (Story Validate) hasn't been executed.
-
 1. **Story {{STORY_ID}} Create**
    - **Skip if:** a story file for {{STORY_ID}} already exists in `{{implementation_artifacts}}/` (glob for `{{STORY_ID}}-*.md`). Log "Story file already exists" with the file path. Set `{{STORY_FILE}}` to the existing file path.
-   - **Task prompt:** `/bmad-bmm-create-story story {{STORY_ID}} yolo — End with a ## Handoff section containing STORY_FILE: <path to the created story file>.`
+   - **Task prompt:** `/bmad-bmm-create-story story {{STORY_ID}} yolo`
 
-2. **Story {{STORY_ID}} Validate**: `/bmad-review-adversarial-general {{STORY_FILE}} yolo - review this story file against BMAD story creation standards. Validate completeness of acceptance criteria, technical context, task breakdown, and dependency declarations. Automatically fix all issues and optimization opportunities found.`
-
->>> CHECKPOINT: `wip({{STORY_ID}}): story created and validated`
+2. **Story {{STORY_ID}} Validate**
+   - **Task prompt:** `/bmad-bmm-create-story validate story {{STORY_ID}} yolo — fix all issues, recommendations and optimizations.`
 
 ## Test-First
 
-3. **Story {{STORY_ID}} ATDD**: `/bmad-tea-testarch-atdd {{STORY_FILE}} yolo`
-
->>> CHECKPOINT: `wip({{STORY_ID}}): ATDD tests written`
+3. **Story {{STORY_ID}} ATDD**
+   - **Task prompt:** `/bmad-tea-testarch-atdd {{STORY_FILE}} yolo`
 
 ## Development
 
-4. **Story {{STORY_ID}} Develop**: `/bmad-bmm-dev-story {{STORY_FILE}} yolo — When implementing, if context7 MCP tools are available (resolve-library-id → query-docs), use them to look up current API patterns for libraries being used rather than relying on training data. IMPORTANT — Before marking the story complete and reporting back to the coordinator, you MUST fill in ALL Dev Agent Record fields: set "Agent Model Used" to your actual model name and version (not the template placeholder), add entries to "Completion Notes List" summarizing what was implemented per task, populate "File List" with every file created/modified/deleted (relative paths), and add a Change Log entry summarizing the development session with the date.`
+4. **Story {{STORY_ID}} Develop**
+   - **Task prompt:** `/bmad-bmm-dev-story {{STORY_FILE}} yolo`
 
-5. **Story {{STORY_ID}} Post-Dev Artifact Verify**: `Read {{STORY_FILE}} and {{implementation_artifacts}}/sprint-status.yaml. The story key in sprint-status.yaml is the filename stem of {{STORY_FILE}} without the .md extension. The develop step just completed and reported the following: [paste the Step Summary from step 4]. Verify and fix: (a) story file Status field is "review" — if not, set it to "review", (b) sprint-status.yaml entry matching the story key is "review" — if not, update it to "review", (c) all completed tasks in Tasks/Subtasks have [x] checkboxes, (d) File List section has entries for files created/modified (not empty), (e) Change Log section has at least one entry for the development session, (f) "Agent Model Used" in Dev Agent Record is filled in with an actual model name — not the template placeholder "{{agent_model_name_version}}", (g) "Completion Notes List" in Dev Agent Record has at least one entry summarizing what was implemented. For any item that is missing or incorrect, fix it using the context from the develop step's summary above. Preserve ALL existing content, comments, structure, and STATUS DEFINITIONS in both files. yolo`
+## Code Reviews
 
-6. **Story {{STORY_ID}} Frontend Polish**
-   - **Skip if:** the story file's `ui_impact` field is explicitly `false`, or the field is absent and the story's acceptance criteria and tasks clearly involve no user-facing UI changes (coordinator reads `{{STORY_FILE}}` to check). Log "No frontend polish needed — backend-only story".
-   - **Task prompt:** `/frontend-design:frontend-design yolo — Review and polish the frontend components created or modified by story {{STORY_ID}}. Read {{STORY_FILE}} for context on what was built. Focus on the components touched by this story — improve visual quality, interaction polish, and design consistency while preserving all existing functionality and acceptance criteria.`
+5. **Story {{STORY_ID}} Code Review #1**
+   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues.`
 
-## Post-Development Verification
+6. **Story {{STORY_ID}} Code Review #2**
+   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues.`
 
-7. **Story {{STORY_ID}} Post-Dev Lint & Typecheck**: `{{LINT_PROMPT}}`
-8. **Story {{STORY_ID}} Post-Dev Test Verification**: `{{TEST_PROMPT}} and specifically verify that the ATDD acceptance tests now pass. End with a ## Handoff section containing TEST_COUNT: <total number of tests that ran>.`
+7. **Story {{STORY_ID}} Code Review #3**
+   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues.`
 
->>> CHECKPOINT: `wip({{STORY_ID}}): development complete, lint and tests passing`
+## NFR Gate
 
-## Early NFR Gate
+8. **Story {{STORY_ID}} NFR**
+   - **Task prompt:** `/bmad-tea-testarch-nfr {{STORY_FILE}} yolo`
 
-9. **Story {{STORY_ID}} NFR**: `/bmad-tea-testarch-nfr {{STORY_FILE}} yolo`
+## E2E Tests
 
-## Test Expansion & Review
+9. **Story {{STORY_ID}} E2E**
+   - **Task prompt:** `/bmad-bmm-qa-generate-e2e-tests {{STORY_FILE}} yolo`
 
-10. **Story {{STORY_ID}} Test Automate**: `/bmad-tea-testarch-automate {{STORY_FILE}} yolo - if any acceptance criteria are not yet covered by automated tests, generate tests to fill those gaps.`
-11. **Story {{STORY_ID}} Test Review**: `/bmad-tea-testarch-test-review {{STORY_FILE}} yolo - review the story's test suite for completeness, relevance, and quality. Automatically fix any issues found.`
+## Traceability & Test Automation
 
->>> CHECKPOINT: `wip({{STORY_ID}}): NFR checked, test suite expanded and reviewed`
+10. **Story {{STORY_ID}} Trace**
+   - **Task prompt:** `/bmad-tea-testarch-trace {{STORY_FILE}} yolo`
 
-## Code Reviews (iterative)
+11. **Story {{STORY_ID}} Test Automate**
+   - **Task prompt:** `/bmad-tea-testarch-automate {{STORY_FILE}} yolo`
 
-12. **Story {{STORY_ID}} Code Review #1**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
-13. **Story {{STORY_ID}} Review #1 Artifact Verify**: `Read {{STORY_FILE}}. Code review #1 just completed and reported: [paste the Step Summary from step 12]. Verify and fix: (a) the story file contains a "## Code Review Record" section — if not, create it after the "## Dev Agent Record" section, (b) the Code Review Record contains an entry for review pass #1 with date, reviewer model, issue counts by severity, and outcome — if not, add one using the step summary context above, (c) if the code review created action items or "Review Follow-ups (AI)" tasks, verify they appear in Tasks/Subtasks. Preserve ALL existing content. yolo`
-14. **Story {{STORY_ID}} Code Review #2**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
-15. **Story {{STORY_ID}} Review #2 Artifact Verify**: `Read {{STORY_FILE}}. Code review #2 just completed and reported: [paste the Step Summary from step 14]. Verify and fix: (a) the "## Code Review Record" section contains an entry for review pass #2 — if not, add one using the step summary context above with date, issue counts by severity, and outcome, (b) the entry is distinct from the pass #1 entry (not a duplicate), (c) if the code review resolved previous action items, verify their checkboxes are marked [x]. Preserve ALL existing content. yolo`
-16. **Story {{STORY_ID}} Code Review #3**: `/bmad-bmm-code-review {{STORY_FILE}} yolo - automatically fix all critical, high, medium, and low severity issues. Additionally, use any available security guidance tools to check for OWASP top 10 vulnerabilities, authentication/authorization flaws, and injection risks. In your Step Summary, report the exact count of issues found per severity level (critical/high/medium/low).`
-17. **Story {{STORY_ID}} Review #3 Artifact Verify**: `Read {{STORY_FILE}} and {{implementation_artifacts}}/sprint-status.yaml. The story key in sprint-status.yaml is the filename stem of {{STORY_FILE}} without the .md extension. Code review #3 (final) just completed and reported: [paste the Step Summary from step 16]. Verify and fix: (a) the "## Code Review Record" section contains an entry for review pass #3 — if not, add one using the step summary context above with date, issue counts by severity, and outcome, (b) there are exactly 3 distinct review entries in the Code Review Record, (c) story file Status is "done" — if not, set it to "done", (d) sprint-status.yaml entry matching the story key is "done" — if not, update it to "done". Preserve ALL existing content, comments, structure, and STATUS DEFINITIONS in both files. yolo`
-
-## Security Scan
-
-18. **Story {{STORY_ID}} Security Scan**
-   - **Skip if:** `semgrep` is not installed (coordinator runs `which semgrep` before launching the Task; if it exits non-zero, skip). Log "semgrep not installed — skipping security scan".
-   - **Task prompt:** `Run semgrep security scan on all files created or modified by this story. Check for OWASP top 10 vulnerabilities, injection flaws, insecure patterns, and security anti-patterns. Automatically fix all issues found. Refer to the story file at {{STORY_FILE}} for context on what was built. yolo`
-
-## Post-Review Regression
-
-19. **Story {{STORY_ID}} Regression Lint & Typecheck**: `{{LINT_PROMPT}}`
-20. **Story {{STORY_ID}} Regression Test**: `{{TEST_PROMPT}} The post-dev test count was {{POST_DEV_TEST_COUNT}}. Verify the total test count has NOT decreased — if it has, STOP and report a test count regression (tests may have been deleted or disabled by code review fixes). End with a ## Handoff section containing TEST_COUNT: <total number of tests that ran>.`
-
->>> CHECKPOINT: `wip({{STORY_ID}}): code reviews complete, security scanned, regression passing`
-
-## Quality Gates
-
-21. **Story {{STORY_ID}} E2E**
-    - **Skip if:** the story file's `ui_impact` field is explicitly `false`, or the field is absent and the story's acceptance criteria and tasks clearly involve no user-facing UI changes (coordinator reads `{{STORY_FILE}}` to check). Log "No E2E tests needed — backend-only story".
-    - **Task prompt:** `/bmad-bmm-qa-generate-e2e-tests {{STORY_FILE}} yolo — generate E2E tests for this story's user-facing UI changes.`
-22. **Story {{STORY_ID}} Trace**: `/bmad-tea-testarch-trace {{STORY_FILE}} yolo — if traceability analysis reveals acceptance criteria with no test coverage, list the gaps explicitly in your Step Summary under **Uncovered ACs** so the report captures them.`
-
-### Trace Gap Recovery
-
-If step 22 reports uncovered acceptance criteria, run one recovery pass:
-
-23. **Story {{STORY_ID}} Trace Gap Fill**: `/bmad-tea-testarch-automate {{STORY_FILE}} yolo - generate tests ONLY for these specific uncovered acceptance criteria: [list ACs from step 22 output]. Do not duplicate existing tests.`
-
-Then re-run traceability:
-
-24. **Story {{STORY_ID}} Trace Re-check**: `/bmad-tea-testarch-trace {{STORY_FILE}} yolo`
-
-If gaps remain after re-check, note them in the report as known gaps but do not loop further.
-
-# Report
-
-**Generate the report BEFORE the final commit** so it is included in the squashed commit alongside the code.
-
-Compile the report from the Step Summary sections collected from each agent. Use this template:
-
-```markdown
-# Story {{STORY_ID}} Report
-
-## Overview
-- **Story file**: {{STORY_FILE}}
-- **Git start**: `{{START_COMMIT_HASH}}`
-- **Duration**: approximate wall-clock time from start to finish of the pipeline
-- **Pipeline result**: success | partial failure at step N
-- **Migrations**: list any Alembic migration files created (file path + what it does), or "None"
-
-## What Was Built
-Brief description of what this story implemented (1-3 sentences from the story spec).
-
-## Acceptance Criteria Coverage
-List each acceptance criterion from the story file and its coverage status:
-- [ ] AC1: description — covered by: test file(s) | not yet covered
-- [ ] AC2: description — covered by: test file(s) | not yet covered
-- ...
-
-## Files Changed
-Consolidated list of all files created/modified/deleted, grouped by directory. For each file, note whether it was created (new), modified, or deleted.
-
-## Pipeline Steps
-
-For each step, list:
-
-### Step N: Step Name
-- **Status**: success/failure
-- **Duration**: approximate wall-clock time
-- **What changed**: files created/modified/deleted
-- **Key decisions**: any non-obvious choices made
-- **Issues found & fixed**: count and description (if any)
-- **Remaining concerns**: (if any)
-
-## Test Coverage
-- Tests generated (ATDD, automated, E2E) — list test files
-- Coverage summary (which acceptance criteria are covered — reference the AC checklist above)
-- Any gaps
-- **Test count**: post-dev {{POST_DEV_TEST_COUNT}} → regression {{REGRESSION_TEST_COUNT}} (delta: +N or REGRESSION)
-
-## Code Review Findings
-Per-pass summary with issue counts:
-
-| Pass | Critical | High | Medium | Low | Total Found | Fixed | Remaining |
-|------|----------|------|--------|-----|-------------|-------|-----------|
-| #1   | ...      | ...  | ...    | ... | ...         | ...   | ...       |
-| #2   | ...      | ...  | ...    | ... | ...         | ...   | ...       |
-| #3   | ...      | ...  | ...    | ... | ...         | ...   | ...       |
-
-## Quality Gates
-- **Frontend Polish**: applied/skipped — details
-- **NFR**: pass/fail — details
-- **Security Scan (semgrep)**: pass/fail — issues found and fixed
-- **E2E**: pass/skip/fail — details
-- **Traceability**: pass/fail — link to matrix output
-
-## Known Risks & Gaps
-Anything the developer should watch out for, review manually, or address in a follow-up. Include any non-converging code review findings.
-
-## Manual Verification
-Omit this section if the story has no UI impact. Otherwise, provide step-by-step actions to test and verify the story from the UI.
-
----
-
-## TL;DR
-3-4 sentence executive summary: what was built, whether the pipeline passed cleanly, and any action items requiring human attention.
-```
-
-Save it as `story-{{STORY_ID}}-report.md` in the `{{auto_bmad_artifacts}}/` folder.
+12. **Story {{STORY_ID}} Test Review**
+   - **Task prompt:** `/bmad-tea-testarch-test-review {{STORY_FILE}} yolo`
 
 # Final Commit
 
-After the report is saved, squash all checkpoint commits and create one clean commit:
+1. `git reset --soft {{START_COMMIT_HASH}}` — squash all checkpoint commits, keep changes staged.
+2. Read {{STORY_FILE}} to determine the story type and what was built, then commit:
 
-1. `git reset --soft {{START_COMMIT_HASH}}` — undoes all checkpoint commits but keeps all changes staged.
-2. `/commit-commands:commit <type>({{STORY_ID}}): story complete` — creates a single clean commit with all code + report. Derive `<type>` from the story spec's `type` field if present (feat, fix, chore, refactor); default to `feat` if no type is specified.
-3. Record the final git commit hash as {{FINAL_COMMIT_HASH}} and print it to the user.
-4. Clean up the recovery tag: `git tag -d pipeline-start-{{STORY_ID}}`
+```
+git add -A && git commit -m "<type>({{STORY_ID}}): <one-line summary>
 
-# Filesystem Boundary
+<2-5 line summary or list of what was implemented>"
+```
 
-Agents and coordinator MUST NOT write files outside the project root. For temporary files, use `{project_root}/.auto-bmad-tmp/` (created on demand, cleaned by the coordinator after each step completes). Never use `/tmp`, `$TMPDIR`, or other system-level temp directories.
+Derive `<type>` from the story using this table (default to `feat` if ambiguous):
+
+| Type | When to use |
+|------|------------|
+| `feat` | New user-facing feature or capability |
+| `fix` | Bug fix |
+| `refactor` | Code restructuring, no behavior change |
+| `perf` | Performance improvement |
+| `chore` | Dependencies, configs, tooling, maintenance |
+| `docs` | Documentation only |
+| `test` | Tests only, no production code |
+| `style` | Formatting, whitespace, no logic change |
+| `ci` | CI/CD pipeline changes |
+| `build` | Build system or external dependency changes |
+
+The one-line summary should describe the user-facing outcome, not "story complete".
+
+# Pipeline Report
+
+1. Record `{{END_TIME}}` — current date+time in ISO 8601 format.
+2. Scan `{{output_folder}}/` recursively for files modified after `{{START_TIME}}` to build the artifact list.
+3. Create `{{auto_bmad_artifacts}}/` directory if it doesn't exist.
+4. Generate the report and save it to `{{auto_bmad_artifacts}}/pipeline-report-story-{{STORY_ID}}-YYYY-MM-DD-HHMMSS.md` (using `{{END_TIME}}` for the timestamp).
+5. Print the full report to the user.
+
+Use this template for the report:
+
+```markdown
+# Pipeline Report: story [{{STORY_ID}}]
+
+| Field | Value |
+|-------|-------|
+| Pipeline | story |
+| Story | {{STORY_ID}} |
+| Start | {{START_TIME}} |
+| End | {{END_TIME}} |
+| Duration | <minutes>m |
+| Initial Commit | {{START_COMMIT_HASH}} |
+
+## Artifacts
+
+- `<relative-path>` — new/updated
+
+## Pipeline Outcome
+
+| # | Step | Status | Duration | Summary |
+|---|------|--------|----------|---------|
+| 1 | Story Create | done/skipped | Xm | <story title/scope> |
+| 2 | Story Validate | done | Xm | <issues found and fixed count> |
+| 3 | ATDD | done | Xm | <acceptance tests written count> |
+| 4 | Develop | done | Xm | <files created/modified, key implementation summary> |
+| 5 | Code Review #1 | done | Xm | <issues found/fixed count by severity> |
+| 6 | Code Review #2 | done | Xm | <issues found/fixed count by severity> |
+| 7 | Code Review #3 | done | Xm | <issues found/fixed count by severity> |
+| 8 | NFR | done | Xm | <NFR assessment result (pass/concerns)> |
+| 9 | E2E | done | Xm | <e2e tests generated count> |
+| 10 | Trace | done | Xm | <traceability coverage %> |
+| 11 | Test Automate | done | Xm | <tests automated count> |
+| 12 | Test Review | done | Xm | <test quality verdict> |
+
+## Key Decisions & Learnings
+
+- <short summary of important decisions made, issues encountered, or learnings from any step>
+- <e.g. "Code review #2 found SQL injection in auth module — fixed", "ATDD tests required mock service setup">
+
+## Action Items
+
+### Review
+- [ ] Story implementation matches acceptance criteria
+- [ ] Code review findings that were auto-fixed — verify fixes are correct
+
+### Test
+- [ ] Run the app and exercise the implemented feature
+- [ ] Run test suites locally (`npm test`, `npx playwright test`, etc.)
+- [ ] Verify edge cases from story spec
+
+### Attention
+- [ ] <NFR concerns flagged — e.g. "auth endpoint has no rate limiting", "no caching on frequently accessed data">
+- [ ] <traceability gaps — e.g. "2 acceptance criteria not covered by tests">
+- [ ] <test coverage gaps — e.g. "error handling paths not tested">
+```

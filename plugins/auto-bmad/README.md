@@ -4,33 +4,18 @@
 
 Automated (and very opinionated) BMAD pipeline orchestration for Claude Code.
 
-Four sequential pipeline commands that drive and augment the full BMAD software development lifecycle — from planning through story delivery — plus a safe-bash auto-approval hook for frictionless autonomous execution. The pipelines augment the core BMAD workflow with additional non-BMAD steps for a more thorough development process: frontend design polish, semgrep security scanning, CLAUDE.md maintenance, and various readiness checks.
+Four sequential pipeline commands that drive the BMAD software development lifecycle — from planning through story delivery — plus a safe-bash auto-approval hook for frictionless autonomous execution.
 
-Each full pipeline also has a **lite** variant that contains only BMAD slash command invocations — no git operations, reports, lint/test runs, artifact verification, or orchestration overhead. Useful for testing BMAD workflows in isolation.
-
-> 👀 The pipelines are quite long and token hungry (the story pipeline alone can run for more than 90 minutes). Some steps might seem redundant, but I am satisfied with the code quality and consistency I get out of this. I recommend having a Claude Code Max x5 or x20 subscription to not hit limits mid-run.
+> 👀 The pipelines are quite long and token hungry (the story pipeline alone can run for more than 60 minutes). Some steps might seem redundant, but I am satisfied with the code quality and consistency I get out of this. I recommend having a Claude Code Max x5 or x20 subscription to not hit limits mid-run.
 
 ## 🚀 Commands
 
-### Full Pipelines
-
 | Command | Steps | Description |
 |---------|-------|-------------|
-| `/auto-bmad-plan` | 13 | Run the full pre-implementation pipeline: product brief, PRD, UX, architecture, test framework, CI, epics, test design, sprint planning. Requires a comprehensive input in order to proceed. |
-| `/auto-bmad-epic-start` | 7 | Start a new epic: resolve previous retro actions, establish green baseline, plan story order |
-| `/auto-bmad-story` | 22-24 | Develop a full story: create, validate, ATDD, develop, lint, test, code review, security scan, regression, E2E, trace |
-| `/auto-bmad-epic-end` | 11 | Close an epic: aggregate data, traceability gate, retrospective, next epic preview |
-
-### Lite Pipelines
-
-Stripped-down variants with only BMAD slash commands — no input readiness gate, no git operations (checkpoints, squash, recovery tags), no reports, no lint/test/artifact-verify steps, no frontend polish or security scan. Same coordinator + Task agent pattern and skip conditions.
-
-| Command | Steps | Description |
-|---------|-------|-------------|
-| `/auto-bmad-plan-lite` | 11 | Lite pre-implementation: product brief, PRD, validate, UX, architecture, test framework, test design, epics, readiness, project context, sprint planning |
-| `/auto-bmad-epic-start-lite` | 1 | Lite epic start: epic-level test design only |
-| `/auto-bmad-story-lite` | 12 | Lite story: create, validate, ATDD, develop, NFR, 3x code review, E2E, trace, automate, test review |
-| `/auto-bmad-epic-end-lite` | 3 | Lite epic end: epic trace, retrospective, project context refresh |
+| `/auto-bmad-plan` | 11 | Pre-implementation pipeline: product brief, PRD, validate, UX, architecture, test framework, test design, epics, readiness, project context, sprint planning |
+| `/auto-bmad-epic-start` | 1 | Start a new epic: epic-level test design |
+| `/auto-bmad-story` | 12 | Develop a story: create, validate, ATDD, develop, 3x code review, NFR, E2E, trace, automate, test review |
+| `/auto-bmad-epic-end` | 4 | Close an epic: trace, retrospective, resolve retro actions, project context refresh |
 
 ## 🗂 Artifacts
 
@@ -88,23 +73,6 @@ The pipelines are based on the [BMAD Method](https://github.com/bmad-code-org/BM
 #### Optional BMAD Modules
 
 - **CIS** — Creative Intelligence Suite. Enhances UX design quality during the plan pipeline. Without it, UX steps use baseline prompts.
-
-### Required Claude Code Plugins
-
-From the [`anthropics/claude-plugins-official`](https://github.com/anthropics/claude-plugins-official) marketplace. These plugins provide the commands invoked by the full pipelines. **The lite pipelines do not require any of these** — they only invoke BMAD commands.
-
-- **frontend-design** — `/frontend-design:frontend-design` (story UI polish step)
-- **commit-commands** — `/commit-commands:commit` (final commit in all pipelines)
-- **claude-md-management** — `/claude-md-management:claude-md-improver` (CLAUDE.md maintenance in plan and epic-end)
-
-To install them:
-
-```
-/plugin marketplace add anthropics/claude-plugins-official
-/plugin install frontend-design@claude-plugins-official
-/plugin install commit-commands@claude-plugins-official
-/plugin install claude-md-management@claude-plugins-official
-```
 
 ### Optional (but recommended) Claude Code Plugins
 
@@ -179,11 +147,11 @@ Many bash commands are already pre-approved by the safe bash auto-approval hook,
 
 I recommend adding these to your project's `.claude/settings.json` under `permissions.allow` to avoid repeated prompts:
 
-- `WebSearch`
-- `WebFetch`
-- `Skill(commit-commands:commit)`
-- `mcp__plugin_context7_context7__resolve-library-id`
-- `mcp__plugin_context7_context7__query-docs`
+- "WebSearch"
+- "WebFetch"
+- "mcp__ide__getDiagnostics"
+- "mcp__plugin_context7_context7__resolve-library-id"
+- "mcp__plugin_context7_context7__query-docs"
 
 > ⚠️ Alternatively, you can run Claude Code in "dangerously skip permissions" mode (`--dangerously-skip-permissions`), but do so at your own risk — this disables **all** permission checks, not just the ones above. Only use it in an isolated environment like a VM or container.
 
