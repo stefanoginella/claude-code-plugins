@@ -197,7 +197,7 @@ Use this template for the report:
 - [ ] Code review findings that were auto-fixed — verify fixes are correct
 
 ### Test
-- [ ] Run the app and exercise the implemented feature
+- [ ] Provide step-by-step manual testing instructions covering every implemented feature and acceptance criterion — include exact commands to run, URLs to visit, inputs to enter, and expected outcomes for each step
 - [ ] Run test suites locally (`npm test`, `npx playwright test`, etc.)
 - [ ] Verify edge cases from story spec
 
@@ -205,4 +205,8 @@ Use this template for the report:
 - [ ] <NFR concerns flagged — e.g. "auth endpoint has no rate limiting", "no caching on frequently accessed data">
 - [ ] <traceability gaps — e.g. "2 acceptance criteria not covered by tests">
 - [ ] <test coverage gaps — e.g. "error handling paths not tested">
+
+### Next
+- Start a new session with fresh context, then run `/auto-bmad-story <next-story>` for the next story in the sprint
+- After all stories in the epic are done, start a new session and run `/auto-bmad-epic-end <epic-number>` to close the epic
 ```

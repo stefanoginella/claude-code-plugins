@@ -103,9 +103,14 @@ Use this template for the report:
 
 ### Review
 - [ ] Epic-level test design coverage and strategy
+- [ ] Sprint backlog — confirm the stories queued for this epic are correctly scoped and prioritized before starting development
 
 ### Attention
 - [ ] <testing assumptions — e.g. "assumes test database is available", "mock services needed for integration tests">
 - [ ] <missing test scenarios — e.g. "no load testing planned", "error recovery paths not covered">
 - [ ] <environment dependencies — e.g. "requires Docker for containerized tests", "needs API keys for third-party services">
+
+### Next
+- Start a new session with fresh context for each story, then run `/auto-bmad-story <epic-story>` (e.g. `/auto-bmad-story 1-1`, then `1-2`, etc.)
+- After all stories are done, start a new session and run `/auto-bmad-epic-end <epic-number>` to close the epic
 ```

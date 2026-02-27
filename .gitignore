@@ -4,6 +4,7 @@ _bmad-output/
 
 # AI
 .claude
+CLAUDE.md
 
 # NPM package build artifacts
 packages/*/README.md
@@ -12,3 +13,7 @@ packages/*/LICENSE.md
 # TEMP
 tmp.md
 tmp/
+
+# OS
+.DS_Store
+Thumbs.db

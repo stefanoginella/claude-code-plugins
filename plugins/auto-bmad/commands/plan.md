@@ -178,16 +178,19 @@ Use this template for the report:
 ## Action Items
 
 ### Review
+- [ ] Read through every generated artifact — PRD, architecture, UX design, epics — before starting implementation
 - [ ] PRD completeness — verify scope and feature list match the product vision
 - [ ] Architecture tech stack — confirm alignment with team skills and infrastructure
 - [ ] UX flows — check edge cases and error states
 - [ ] Epic scoping/sizing — validate sprint capacity estimates
-
-### Test
-- N/A (no code produced)
+- [ ] Any skipped steps — if steps were skipped due to existing artifacts, verify those artifacts are still current and complete
 
 ### Attention
 - [ ] <assumptions made in architecture — e.g. "assumes cloud deployment", "chose SQL over NoSQL based on data model">
 - [ ] <missing NFRs — e.g. "no performance targets defined", "security requirements TBD">
 - [ ] <scope risks in sprint plan — e.g. "first sprint is ambitious", "dependency on external API not yet available">
+
+### Next
+- Start a new session with fresh context, then run `/auto-bmad-epic-start <epic-number>` to prepare the first epic (test design)
+- Then run `/auto-bmad-story <epic-story>` for each story in the sprint (one story per session)
 ```

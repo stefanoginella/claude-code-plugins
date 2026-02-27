@@ -113,8 +113,13 @@ Use this template for the report:
 ### Review
 - [ ] Retrospective findings — validate insights and action items
 - [ ] Updated project context — verify accuracy of current state
+- [ ] Final squashed commit — review the diff (`git show HEAD`) to confirm all epic changes are correct and complete
 
 ### Attention
 - [ ] <deferred retro action items — process/team items that couldn't be auto-resolved, e.g. "improve estimation accuracy", "more pair programming">
 - [ ] <traceability gaps — e.g. "3 stories lack full requirement coverage", "acceptance criteria partially tested">
+
+### Next
+- If more epics remain, start a new session with fresh context and run `/auto-bmad-epic-start <next-epic-number>` to prepare the next epic
+- If all epics are done, the project is complete — consider a final end-to-end review
 ```
