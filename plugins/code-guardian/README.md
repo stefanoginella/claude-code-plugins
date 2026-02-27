@@ -75,7 +75,14 @@ All tools are free, open-source, and work on private repositories with no limita
 
 ## 📦 Installation
 
-As a local plugin for development:
+From the marketplace:
+
+```
+/plugin marketplace add stefanoginella/claude-code-plugins
+/plugin install code-guardian@stefanoginella-plugins
+```
+
+Or as a local plugin for development:
 
 ```bash
 claude --plugin-dir /path/to/plugins/code-guardian

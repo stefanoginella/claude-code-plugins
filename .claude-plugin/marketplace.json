@@ -1,6 +1,6 @@
 {
-  "name": "custom-claude-code-plugins",
-  "version": "1.0.2",
+  "name": "stefanoginella-plugins",
+  "version": "1.0.3",
   "description": "Collection of opinionated Claude Code plugins — built by a solo dev for solo devs. Check check https://github.com/stefanoginella/claude-code-plugins/ for details.",
   "owner": {
     "name": "Stefano Ginella",

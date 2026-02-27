@@ -49,7 +49,7 @@ From the marketplace:
 
 ```
 /plugin marketplace add stefanoginella/claude-code-plugins
-/plugin install auto-bmad@claude-code-plugins
+/plugin install auto-bmad@stefanoginella-plugins
 ```
 
 Or as a local plugin for development:
