@@ -28,24 +28,27 @@ GITLEAKS_ARGS=("detect" "--source" "." "--report-format" "json" "--report-path" 
 
 DOCKER_IMAGE="zricethezav/gitleaks:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "gitleaks" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" gitleaks "${GITLEAKS_ARGS[@]}" \
-    2>/dev/null || EXIT_CODE=$?
+if cmd_exists gitleaks; then
+  gitleaks "${GITLEAKS_ARGS[@]}" 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
   docker run --rm -v "$(pwd):/workspace" -w /workspace \
     "$DOCKER_IMAGE" detect --source /workspace \
     --report-format json --report-path /workspace/.gitleaks-report.json \
     --no-banner 2>/dev/null || EXIT_CODE=$?
   [[ -f .gitleaks-report.json ]] && mv .gitleaks-report.json "$RAW_OUTPUT"
-elif cmd_exists gitleaks; then
-  gitleaks "${GITLEAKS_ARGS[@]}" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "Gitleaks not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+# Note: gitleaks exits 1 when leaks are found (with valid output), so only fail on empty output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "Gitleaks failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 # Parse output
@@ -75,6 +78,34 @@ except Exception as e:
 fi
 
 rm -f "$RAW_OUTPUT"
+
+# Post-filter findings to scope if scope file provided
+if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$FINDINGS_FILE" ]]; then
+  FILTERED=$(mktemp /tmp/cg-gitleaks-filtered-XXXXXX.jsonl)
+  python3 -c "
+import json, sys
+scope_files = set()
+with open(sys.argv[1]) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            scope_files.add(line)
+            # Also match without leading ./
+            scope_files.add(line.lstrip('./'))
+with open(sys.argv[2]) as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        try:
+            finding = json.loads(line)
+            fpath = finding.get('file', '').lstrip('./')
+            if fpath in scope_files or any(fpath == s.lstrip('./') for s in scope_files):
+                print(line)
+        except json.JSONDecodeError:
+            continue
+" "$SCOPE_FILE" "$FINDINGS_FILE" > "$FILTERED"
+  mv "$FILTERED" "$FINDINGS_FILE"
+fi
 
 count=$(wc -l < "$FINDINGS_FILE" | tr -d ' ')
 if [[ "$count" -gt 0 ]]; then

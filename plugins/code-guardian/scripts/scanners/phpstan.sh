@@ -39,41 +39,48 @@ EXIT_CODE=0
 
 DOCKER_IMAGE="ghcr.io/phpstan/phpstan:latest"
 
-# Determine analysis paths
-ANALYSIS_PATHS="."
+# Determine analysis paths as an array
+ANALYSIS_PATHS=(".")
 if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$SCOPE_FILE" ]]; then
-  php_files=$(grep '\.php$' "$SCOPE_FILE" | tr '\n' ' ')
-  if [[ -n "$php_files" ]]; then
-    ANALYSIS_PATHS="$php_files"
+  php_file_args=()
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && php_file_args+=("$f")
+  done < <(grep '\.php$' "$SCOPE_FILE")
+  if [[ ${#php_file_args[@]} -gt 0 ]]; then
+    ANALYSIS_PATHS=("${php_file_args[@]}")
   fi
 fi
 
 # Determine PHPStan level — use project config if it exists, else level 5 (balanced)
-LEVEL_ARG="--level=5"
+LEVEL_ARGS=("--level=5")
 if [[ -f phpstan.neon ]] || [[ -f phpstan.neon.dist ]] || [[ -f phpstan.dist.neon ]]; then
-  LEVEL_ARG=""  # Let the config file control the level
+  LEVEL_ARGS=()  # Let the config file control the level
 fi
 
-CONTAINER_SVC=$(get_container_service_for_tool "phpstan" 2>/dev/null || true)
+PHPSTAN_ARGS=("analyse" "--error-format=json" "--no-progress" "${LEVEL_ARGS[@]}" "${ANALYSIS_PATHS[@]}")
 
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" phpstan analyse --error-format=json --no-progress $LEVEL_ARG $ANALYSIS_PATHS \
+if cmd_exists phpstan; then
+  phpstan "${PHPSTAN_ARGS[@]}" \
+    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+elif [[ -f vendor/bin/phpstan ]]; then
+  vendor/bin/phpstan "${PHPSTAN_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
   docker run --rm -v "$(pwd):/app" -w /app \
-    "$DOCKER_IMAGE" analyse --error-format=json --no-progress $LEVEL_ARG $ANALYSIS_PATHS \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists phpstan; then
-  phpstan analyse --error-format=json --no-progress $LEVEL_ARG $ANALYSIS_PATHS \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif [[ -f vendor/bin/phpstan ]]; then
-  vendor/bin/phpstan analyse --error-format=json --no-progress $LEVEL_ARG $ANALYSIS_PATHS \
+    "$DOCKER_IMAGE" "${PHPSTAN_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "PHPStan not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "PHPStan failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 # Parse output

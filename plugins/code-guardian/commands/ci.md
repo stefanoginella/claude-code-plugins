@@ -16,18 +16,16 @@ Generate CI/CD pipeline configuration for security scanning based on the project
 
 ## Execution Flow
 
-### Step 1: Check Cache
+### Step 1: Detect Stack
 
-Try to load cached detection results before running full detection:
+Try cached results first:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --read --max-age 86400
 ```
 
-- **Exit 0** (fresh cache): Parse the returned JSON to extract `stack` and `tools` fields. Use cached stack data — tell the user "Using cached stack detection" and **skip Step 1.5**. Save the tools data for use in Step 5.
-- **Exit 1 or 2** (missing/stale): Continue to Step 1.5 for fresh detection.
-
-### Step 1.5: Detect Stack
+- **Exit 0**: Use cached stack data, skip fresh detection.
+- **Exit 1 or 2**: Run fresh detection:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh .
@@ -38,12 +36,12 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh .
 If `$ARGUMENTS` specifies a CI system, use that. Otherwise:
 
 1. Check detected CI systems from stack detection
-2. If multiple CI systems detected, ask which one to generate for
-3. If none detected, ask the user which CI system they use (offer: GitHub Actions, GitLab CI, other)
+2. If multiple detected, ask which one to generate for
+3. If none detected, ask the user (offer: GitHub Actions, GitLab CI, other)
 
 ### Step 3: Check Existing CI Config
 
-Check if there's already a security scanning configuration:
+Check if security scanning is already configured:
 - GitHub Actions: look for `.github/workflows/security*` or security-related steps in existing workflows
 - GitLab CI: look for security stages in `.gitlab-ci.yml`
 
@@ -59,21 +57,15 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/ci-recommend.sh \
 
 ### Step 5: Present and Write
 
-Present the generated configuration to the user.
+Present the generated configuration. Ask if they want to:
 
-If tools data was loaded from the cache (Step 1), include a summary showing which tools the user already has locally versus which will be CI-only:
-> **Your local setup**: semgrep (Docker), gitleaks (local), ...
-> **CI will add**: trivy, checkov, ... (not available locally)
+1. **Write to file** — create/update the CI config file
+2. **View only** — display for manual copy
+3. **Customize** — modify before writing (e.g., change triggers, add/remove tools)
 
-Ask if they want to:
-
-1. **Write to file**: Create/update the CI config file directly
-2. **View only**: Just display it for manual copy
-3. **Customize**: Modify before writing (e.g., change triggers, add/remove tools)
-
-If writing to file:
-- GitHub Actions: Write to `.github/workflows/security.yml`
-- GitLab CI: Append to `.gitlab-ci.yml` or create `.gitlab-ci-security.yml` for include
+If writing:
+- GitHub Actions: `.github/workflows/security.yml`
+- GitLab CI: append to `.gitlab-ci.yml` or create `.gitlab-ci-security.yml` for include
 
 ### Step 6: Additional Recommendations
 
@@ -86,6 +78,6 @@ Based on the stack, recommend:
 ## Important Notes
 
 - Never overwrite existing CI config without confirmation
-- If the project already has CI, suggest adding security as a new job/stage rather than a separate workflow (when appropriate)
-- Include `allow_failure: true` or `continue-on-error: true` for initial rollout so security doesn't block all PRs
+- Suggest adding security as a new job/stage in existing CI rather than a separate workflow (when appropriate)
+- Include `continue-on-error: true` / `allow_failure: true` for initial rollout, but recommend removing it once the team has triaged existing findings — non-blocking security checks provide no enforcement
 - Always include secret detection (gitleaks) as a baseline

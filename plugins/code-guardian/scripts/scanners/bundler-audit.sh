@@ -29,22 +29,15 @@ log_step "Running bundler-audit (Ruby dependency vulnerabilities)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-bundler-audit-XXXXXX.txt)
 EXIT_CODE=0
 
-CONTAINER_SVC=$(get_container_service_for_tool "bundle-audit" 2>/dev/null || true)
-[[ -z "$CONTAINER_SVC" ]] && CONTAINER_SVC=$(get_container_service_for_tool "bundler-audit" 2>/dev/null || true)
-
 if $AUTOFIX; then
-  if [[ -n "$CONTAINER_SVC" ]]; then
-    $(get_compose_cmd) exec -T "$CONTAINER_SVC" bundle-audit update 2>/dev/null || true
-  elif cmd_exists bundle-audit; then
+  if cmd_exists bundle-audit; then
     bundle-audit update 2>/dev/null || true
+  elif cmd_exists bundler-audit; then
+    bundler-audit update 2>/dev/null || true
   fi
 fi
 
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" bundle-audit check --format json \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists bundle-audit; then
+if cmd_exists bundle-audit; then
   bundle-audit check --format json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif cmd_exists bundler-audit; then
   bundler-audit check --format json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
@@ -52,6 +45,14 @@ else
   log_warn "bundler-audit not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "bundler-audit failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then
@@ -63,9 +64,13 @@ try:
     for result in data.get('results', []):
         adv = result.get('advisory', {})
         gem = result.get('gem', {})
+        raw_sev = adv.get('criticality', 'medium')
+        sev = raw_sev.lower() if isinstance(raw_sev, str) else 'medium'
+        if sev not in ('high', 'medium', 'low', 'info'):
+            sev = 'medium'
         finding = {
             'tool': 'bundler-audit',
-            'severity': adv.get('criticality', 'medium'),
+            'severity': sev,
             'rule': adv.get('id', adv.get('cve', '')),
             'message': f\"{gem.get('name','')}@{gem.get('version','')}: {adv.get('title','')}\",
             'file': 'Gemfile.lock',

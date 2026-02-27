@@ -26,7 +26,50 @@ Auto-detects your project's tech stack and runs appropriate open-source CLI tool
 4. **Let the tools and Claude fix things** — tools with autofix support (Semgrep, ESLint, npm audit) handle what they can, and the security-fixer agent takes care of the rest with targeted code-level fixes.
 5. **Run `/code-guardian:code-guardian-ci`** to add security scanning to your CI pipeline if you haven't already.
 
-> ℹ️ **Scope options**: `codebase` (all tracked files), `uncommitted` (all local uncommitted work — staged + unstaged + untracked), or `unpushed` (all commits not yet pushed, compared against a base ref you choose).
+### Options
+
+| Option | Values | Default | Description |
+|--------|--------|---------|-------------|
+| `--scope` | `codebase`, `uncommitted`, `unpushed` | `codebase` | What files to scan. `codebase` = all tracked files. `uncommitted` = staged + unstaged + untracked changes. `unpushed` = commits not yet pushed to remote. |
+| `--tools` | comma-separated tool names | all available | Only run these specific tools (e.g. `--tools semgrep,gitleaks`). Others are skipped. |
+| `--autofix` | — | off | Run tools with auto-fix flags and let the security-fixer agent handle the rest. |
+| `--refresh` | — | off | Force re-detection of stack and tools, ignoring the 24-hour cache. |
+
+These can also be set as persistent defaults in `.claude/code-guardian.config.json` — see [Configuration](#️-configuration) below. CLI arguments always override config values.
+
+**Examples:**
+
+```
+/code-guardian:code-guardian-scan                              # scan everything, pick scope interactively
+/code-guardian:code-guardian-scan --scope uncommitted          # only scan your local changes
+/code-guardian:code-guardian-scan --scope unpushed             # scan commits not yet pushed
+/code-guardian:code-guardian-scan --scope uncommitted --autofix  # auto-fix local changes
+/code-guardian:code-guardian-scan --tools semgrep,gitleaks     # only run specific tools
+```
+
+## ⚙️ Configuration
+
+Scan defaults can be persisted in `.claude/code-guardian.config.json` so you don't have to pass flags every time. Create it manually or run `/code-guardian:code-guardian-setup` to configure interactively.
+
+```json
+{
+  "tools": ["semgrep", "gitleaks", "trivy"],
+  "disabled": ["trufflehog"],
+  "scope": "uncommitted",
+  "autofix": false
+}
+```
+
+| Key | Type | Default | Description |
+|-----|------|---------|-------------|
+| `tools` | `string[]` | all available | Only run these tools. Omit to run everything available. |
+| `disabled` | `string[]` | none | Never run these tools, even if available. |
+| `scope` | `string` | `"codebase"` | Default scan scope: `codebase`, `uncommitted`, or `unpushed`. |
+| `autofix` | `boolean` | `false` | Auto-fix findings by default. |
+
+**Precedence:** CLI flags always win over config values. If both `tools` and `disabled` are set, `tools` takes precedence. Omitted keys use built-in defaults.
+
+This file should be committed to the repo so the team shares the same scan defaults.
 
 ## 🔍 Scan Modes
 
@@ -53,13 +96,13 @@ All tools are free, open-source, and work on private repositories with no limita
 | Category | Tool | Languages/Targets | Autofix | Docker Image |
 |----------|------|-------------------|---------|--------------|
 | SAST | Semgrep | Multi-language (30+) | Yes | `semgrep/semgrep` |
-| SAST | Bandit | Python | No | — |
+| SAST | Bandit | Python | No | `python:3-slim` |
 | SAST | gosec | Go | No | `securego/gosec` |
 | SAST | Brakeman | Ruby/Rails | No | `presidentbeef/brakeman` |
 | SAST | ESLint (security) | JS/TS | Partial | — |
 | SAST | PHPStan | PHP | No | `ghcr.io/phpstan/phpstan` |
 | Secrets | Gitleaks | All | No | `zricethezav/gitleaks` |
-| Secrets | TruffleHog | All (filesystem + git) | No | `trufflesecurity/trufflehog` |
+| Secrets | TruffleHog | All (filesystem) | No | `trufflesecurity/trufflehog` |
 | Dependencies | OSV-Scanner | All ecosystems | No | `ghcr.io/google/osv-scanner` |
 | Dependencies | npm audit | JS/TS | Yes | — |
 | Dependencies | pip-audit | Python | Yes | — |
@@ -68,7 +111,7 @@ All tools are free, open-source, and work on private repositories with no limita
 | Dependencies | govulncheck | Go | No | — |
 | Container | Trivy | Images, FS, IaC | No | `aquasec/trivy` |
 | Container | Hadolint | Dockerfiles | No | `hadolint/hadolint` |
-| Container | Dockle | Docker images | No | `goodwithtech/dockle` |
+| Container | Dockle | Docker images (manual) | No | `goodwithtech/dockle` |
 | IaC | Checkov | Terraform, CFN, K8s | No | `bridgecrew/checkov` |
 
 > ⚠️ Tools without a Docker image require local installation. The plugin will tell you exactly what to install and how — or you can run `/code-guardian:code-guardian-setup` to walk through it interactively.
@@ -105,7 +148,7 @@ claude --plugin-dir /path/to/plugins/code-guardian
 
 ### Recommended
 
-- **Docker** — the plugin prefers running tools via their official Docker images. This avoids installation headaches, ensures consistent versions, and keeps your system clean. Without Docker, tools must be installed locally.
+- **Docker** — the plugin falls back to official Docker images when tools aren't installed locally. This avoids installation headaches and ensures tools are always available. Without Docker, tools must be installed locally.
 
 ### Security Tools
 
@@ -129,13 +172,14 @@ code-guardian/
 │       └── references/
 ├── scripts/
 │   ├── lib/               # Shared utilities and tool registry
-│   │   ├── common.sh      # Colors, logging, container detection, scope management
+│   │   ├── common.sh      # Colors, logging, Docker helpers, scope management
 │   │   └── tool-registry.sh  # Stack → tools mapping, install commands, Docker images
 │   ├── scanners/          # 18 individual scanner wrappers (unified JSONL output)
 │   ├── detect-stack.sh    # Detects languages, frameworks, Docker, CI, IaC
-│   ├── check-tools.sh     # Checks tool availability (container + Docker + local)
+│   ├── check-tools.sh     # Checks tool availability (local + Docker)
 │   ├── scan.sh            # Main scan orchestrator
 │   ├── ci-recommend.sh    # CI config generator
+│   ├── read-config.sh     # Reads project config (.claude/code-guardian.config.json)
 │   └── cache-state.sh     # Cache I/O for stack + tools detection results
 └── .claude-plugin/
     └── plugin.json
@@ -143,13 +187,10 @@ code-guardian/
 
 ### How the Deterministic Layer Works
 
-Each scanner wrapper follows a three-tier execution strategy:
+Each scanner wrapper follows a two-tier execution strategy:
 
-1. **Project container** — If docker-compose services are running, the plugin probes them for tool binaries. If semgrep is already installed in your `app` or `dev` container, it runs there. No extra images pulled, no re-installation.
-2. **Standalone Docker image** — If the tool isn't in a running container but Docker is available, it runs via the tool's official Docker image (pulled on demand).
-3. **Local binary** — Falls back to a locally installed binary if neither container option is available.
-
-This means if your `docker-compose.yml` already has a service with security tools installed, code-guardian will find and use them automatically — no duplication.
+1. **Local binary** — If the tool is installed locally, it runs directly. Fastest option, zero overhead, respects your installed version and configuration.
+2. **Docker image** — If the tool isn't installed locally but Docker is available, it runs via the tool's official Docker image (pulled on demand). Consistent version, no local installation needed.
 
 After choosing the execution environment, each wrapper:
 1. Runs the tool with appropriate flags for the requested scope
@@ -165,7 +206,7 @@ This means Claude always gets findings in the same shape regardless of which too
 
 ### State Caching
 
-The plugin caches stack detection and tool availability results in `.claude/code-guardian-cache.json` (already gitignored). This avoids re-running container probing, Docker checks, and binary lookups on every command.
+The plugin caches stack detection and tool availability results in `.claude/code-guardian-cache.json` (already gitignored). This avoids re-running Docker checks and binary lookups on every command.
 
 - **`setup`** writes the cache after detecting the stack and verifying tools
 - **`scan`** and **`ci`** read from the cache if it's fresh (< 24 hours), skipping re-detection
@@ -177,8 +218,6 @@ The plugin caches stack detection and tool availability results in `.claude/code
 The scan command runs bash scripts that invoke Docker or local CLI tools. Claude Code will prompt you to approve these if they aren't already in your allow list. For smoother runs, consider adding these patterns to your project's `.claude/settings.json` under `permissions.allow`:
 
 - `Bash(bash */code-guardian/scripts/*)`
-
-> ⚠️ Alternatively, you can run Claude Code in `--dangerously-skip-permissions` mode, but do so at your own risk — this disables **all** permission checks. Only use it in an isolated environment.
 
 ## 📄 License
 

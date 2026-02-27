@@ -73,20 +73,6 @@ for existing in "${needed_tools[@]+"${needed_tools[@]}"}"; do
 done
 $gitleaks_found || needed_tools+=("gitleaks")
 
-# ── Probe running project containers for tools ───────────────────────
-# Collect all tool binaries to check in one pass (avoids per-tool container probing)
-all_binaries=()
-for tool in "${needed_tools[@]}"; do
-  all_binaries+=("$(get_tool_binary "$tool")")
-done
-
-has_compose=$(echo "$stack_json" | grep '"dockerCompose"' | sed 's/.*: *//;s/,$//' | tr -d ' ')
-if [[ "$has_compose" == "true" ]] && compose_available; then
-  log_step "Probing running project containers for tools..."
-  detect_container_tools "${all_binaries[@]}"
-  echo "" >&2
-fi
-
 # Check each tool and build report
 available_tools=()
 unavailable_tools=()
@@ -118,12 +104,8 @@ echo "" >&2
 for tool in "${needed_tools[@]}"; do
   status=$(check_tool_availability "$tool")
   case "$status" in
-    container:*)
-      local svc="${status#container:}"
-      log_ok "$tool — available in project container ($svc)"
-      ;;
-    docker) log_ok "$tool — available via Docker image" ;;
     local)  log_ok "$tool — available locally" ;;
+    docker) log_ok "$tool — available via Docker image" ;;
     unavailable)
       install_cmd=$(get_tool_install_cmd "$tool")
       docker_image=$(get_tool_docker_image "$tool")

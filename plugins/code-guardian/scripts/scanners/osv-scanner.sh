@@ -19,23 +19,25 @@ EXIT_CODE=0
 
 DOCKER_IMAGE="ghcr.io/google/osv-scanner:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "osv-scanner" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" osv-scanner --format json -r . \
+if cmd_exists osv-scanner; then
+  osv-scanner --format json -r . \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
   docker run --rm -v "$(pwd):/workspace" -w /workspace \
     "$DOCKER_IMAGE" --format json -r /workspace \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists osv-scanner; then
-  osv-scanner --format json -r . \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "OSV-Scanner not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "OSV-Scanner failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 # Parse output

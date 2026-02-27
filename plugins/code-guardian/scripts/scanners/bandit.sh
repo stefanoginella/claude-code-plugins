@@ -39,26 +39,41 @@ EXIT_CODE=0
 
 BANDIT_ARGS=("-r" "." "-f" "json" "-q")
 
-# Scope filtering
+# Scope filtering: build array of .py files from scope
 if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$SCOPE_FILE" ]]; then
-  py_files=$(grep '\.py$' "$SCOPE_FILE" | tr '\n' ' ')
-  if [[ -n "$py_files" ]]; then
-    BANDIT_ARGS=("-f" "json" "-q" $py_files)
+  py_file_args=()
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && py_file_args+=("$f")
+  done < <(grep '\.py$' "$SCOPE_FILE")
+  if [[ ${#py_file_args[@]} -gt 0 ]]; then
+    BANDIT_ARGS=("-f" "json" "-q" "${py_file_args[@]}")
   fi
 fi
 
-CONTAINER_SVC=$(get_container_service_for_tool "bandit" 2>/dev/null || true)
+DOCKER_IMAGE="python:3-slim"
 
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" bandit "${BANDIT_ARGS[@]}" \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists bandit; then
+if cmd_exists bandit; then
   bandit "${BANDIT_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+elif docker_available; then
+  # Write args to a temp file to avoid shell quoting issues in sh -c
+  ARGS_FILE=$(mktemp /tmp/cg-bandit-args-XXXXXX)
+  printf '%s\0' "${BANDIT_ARGS[@]}" > "$ARGS_FILE"
+  docker run --rm -v "$(pwd):/src" -v "$ARGS_FILE:/tmp/bandit-args" -w /src \
+    "$DOCKER_IMAGE" sh -c 'pip install -q bandit && xargs -0 bandit < /tmp/bandit-args' \
+    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+  rm -f "$ARGS_FILE"
 else
   log_warn "Bandit not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "Bandit failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then

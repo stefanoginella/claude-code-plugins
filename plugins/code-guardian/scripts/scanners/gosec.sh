@@ -31,22 +31,24 @@ EXIT_CODE=0
 
 DOCKER_IMAGE="securego/gosec:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "gosec" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" gosec -fmt=json -out=/tmp/gosec-output.json ./... 2>/dev/null || EXIT_CODE=$?
-  $(get_compose_cmd) cp "$CONTAINER_SVC":/tmp/gosec-output.json "$RAW_OUTPUT" 2>/dev/null || true
+if cmd_exists gosec; then
+  gosec -fmt=json -out="$RAW_OUTPUT" ./... 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
   docker run --rm -v "$(pwd):/workspace" -w /workspace \
     "$DOCKER_IMAGE" -fmt=json -out=/workspace/.gosec-output.json ./... 2>/dev/null || EXIT_CODE=$?
   [[ -f .gosec-output.json ]] && mv .gosec-output.json "$RAW_OUTPUT"
-elif cmd_exists gosec; then
-  gosec -fmt=json -out="$RAW_OUTPUT" ./... 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "gosec not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "gosec failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then
@@ -75,6 +77,33 @@ except Exception as e:
 fi
 
 rm -f "$RAW_OUTPUT"
+
+# Post-filter findings to scope if scope file provided
+if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$FINDINGS_FILE" ]]; then
+  FILTERED=$(mktemp /tmp/cg-gosec-filtered-XXXXXX.jsonl)
+  python3 -c "
+import json, sys
+scope_files = set()
+with open(sys.argv[1]) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            scope_files.add(line)
+            scope_files.add(line.lstrip('./'))
+with open(sys.argv[2]) as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        try:
+            finding = json.loads(line)
+            fpath = finding.get('file', '').lstrip('./')
+            if fpath in scope_files or any(fpath == s.lstrip('./') for s in scope_files):
+                print(line)
+        except json.JSONDecodeError:
+            continue
+" "$SCOPE_FILE" "$FINDINGS_FILE" > "$FILTERED"
+  mv "$FILTERED" "$FINDINGS_FILE"
+fi
 
 count=$(wc -l < "$FINDINGS_FILE" | tr -d ' ')
 if [[ "$count" -gt 0 ]]; then

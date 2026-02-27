@@ -26,14 +26,10 @@ if ! [[ -f package.json ]]; then
   exit 0
 fi
 
-# Check if eslint is available (project container, local node_modules, or global)
+# Check if eslint is available (local node_modules or global)
 ESLINT_BIN=""
-ESLINT_CONTAINER_SVC=$(get_container_service_for_tool "eslint" 2>/dev/null || true)
 
-if [[ -n "$ESLINT_CONTAINER_SVC" ]]; then
-  ESLINT_BIN="eslint"  # will run via compose exec
-  log_info "ESLint found in project container ($ESLINT_CONTAINER_SVC)"
-elif [[ -f node_modules/.bin/eslint ]]; then
+if [[ -f node_modules/.bin/eslint ]]; then
   ESLINT_BIN="node_modules/.bin/eslint"
 elif cmd_exists eslint; then
   ESLINT_BIN="eslint"
@@ -67,22 +63,28 @@ $AUTOFIX && ESLINT_ARGS+=("--fix")
 
 # Determine target files
 if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$SCOPE_FILE" ]]; then
-  js_files=$(grep -E '\.(js|jsx|ts|tsx|mjs|cjs)$' "$SCOPE_FILE" | tr '\n' ' ')
-  if [[ -z "$js_files" ]]; then
+  js_file_args=()
+  while IFS= read -r f; do
+    [[ -n "$f" ]] && js_file_args+=("$f")
+  done < <(grep -E '\.(js|jsx|ts|tsx|mjs|cjs)$' "$SCOPE_FILE")
+  if [[ ${#js_file_args[@]} -eq 0 ]]; then
     log_info "No JS/TS files in scope, skipping ESLint security"
     rm -f "$RAW_OUTPUT"
     exit 0
   fi
-  ESLINT_ARGS+=($js_files)
+  ESLINT_ARGS+=("${js_file_args[@]}")
 else
   ESLINT_ARGS+=(".")
 fi
 
-if [[ -n "$ESLINT_CONTAINER_SVC" ]]; then
-  $(get_compose_cmd) exec -T "$ESLINT_CONTAINER_SVC" eslint "${ESLINT_ARGS[@]}" \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-else
-  $ESLINT_BIN "${ESLINT_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+$ESLINT_BIN "${ESLINT_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "ESLint failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then

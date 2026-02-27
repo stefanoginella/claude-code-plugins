@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# TruffleHog scanner wrapper — deep secret detection (git history + filesystem)
+# TruffleHog scanner wrapper — deep secret detection (filesystem)
 # Usage: trufflehog.sh [--scope-file <file>]
 set -euo pipefail
 
@@ -27,23 +27,25 @@ EXIT_CODE=0
 
 DOCKER_IMAGE="trufflesecurity/trufflehog:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "trufflehog" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" trufflehog filesystem --json --no-update . \
+if cmd_exists trufflehog; then
+  trufflehog filesystem --json --no-update . \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
   docker run --rm -v "$(pwd):/workspace" -w /workspace \
     "$DOCKER_IMAGE" filesystem --json --no-update /workspace \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists trufflehog; then
-  trufflehog filesystem --json --no-update . \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "TruffleHog not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "TruffleHog failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 # Parse output — TruffleHog outputs one JSON object per line (JSONL)
@@ -71,7 +73,6 @@ with open('$RAW_OUTPUT') as f:
                 file_path = git_data.get('file', '')
                 line_num = git_data.get('line', 0)
             detector = obj.get('DetectorName', obj.get('detectorName', ''))
-            raw = obj.get('Raw', '')
             # Deduplicate by detector + file + line
             key = f'{detector}:{file_path}:{line_num}'
             if key in seen:
@@ -95,6 +96,33 @@ with open('$RAW_OUTPUT') as f:
 fi
 
 rm -f "$RAW_OUTPUT"
+
+# Post-filter findings to scope if scope file provided
+if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$FINDINGS_FILE" ]]; then
+  FILTERED=$(mktemp /tmp/cg-trufflehog-filtered-XXXXXX.jsonl)
+  python3 -c "
+import json, sys
+scope_files = set()
+with open(sys.argv[1]) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            scope_files.add(line)
+            scope_files.add(line.lstrip('./'))
+with open(sys.argv[2]) as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        try:
+            finding = json.loads(line)
+            fpath = finding.get('file', '').lstrip('./')
+            if fpath in scope_files or any(fpath == s.lstrip('./') for s in scope_files):
+                print(line)
+        except json.JSONDecodeError:
+            continue
+" "$SCOPE_FILE" "$FINDINGS_FILE" > "$FILTERED"
+  mv "$FILTERED" "$FINDINGS_FILE"
+fi
 
 count=$(wc -l < "$FINDINGS_FILE" | tr -d ' ')
 if [[ "$count" -gt 0 ]]; then

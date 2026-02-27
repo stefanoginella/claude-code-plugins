@@ -40,38 +40,24 @@ log_step "Running $PM audit (dependency vulnerabilities)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-npm-audit-XXXXXX.json)
 EXIT_CODE=0
 
-# Check if package manager is available in a project container
-CONTAINER_SVC=$(get_container_service_for_tool "$PM" 2>/dev/null || true)
-
-# Helper: run a PM command locally or in container
-run_pm() {
-  if [[ -n "$CONTAINER_SVC" ]]; then
-    $(get_compose_cmd) exec -T "$CONTAINER_SVC" "$@"
-  else
-    "$@"
-  fi
-}
-
-[[ -n "$CONTAINER_SVC" ]] && log_info "Running in project container ($CONTAINER_SVC)"
-
 case "$PM" in
   npm)
     if $AUTOFIX; then
-      run_pm npm audit fix --force 2>/dev/null || true
+      npm audit fix --force 2>/dev/null || true
       log_info "Ran npm audit fix --force"
     fi
-    run_pm npm audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+    npm audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
     ;;
   yarn)
-    run_pm yarn audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+    yarn audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
     ;;
   pnpm)
-    run_pm pnpm audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+    pnpm audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
     ;;
   bun)
-    # Bun doesn't have built-in audit; use npm audit if npm or container available
-    if [[ -n "$CONTAINER_SVC" ]] || cmd_exists npm; then
-      run_pm npm audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+    # Bun doesn't have built-in audit; use npm audit if available
+    if cmd_exists npm; then
+      npm audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
     else
       log_info "Bun has no built-in audit and npm not available, skipping"
       rm -f "$RAW_OUTPUT"
@@ -79,6 +65,14 @@ case "$PM" in
     fi
     ;;
 esac
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "$PM audit failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
+fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then
   if cmd_exists python3; then

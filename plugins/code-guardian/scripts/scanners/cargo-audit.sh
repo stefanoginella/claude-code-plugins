@@ -21,13 +21,7 @@ log_step "Running cargo-audit (Rust dependency vulnerabilities)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-cargo-audit-XXXXXX.json)
 EXIT_CODE=0
 
-CONTAINER_SVC=$(get_container_service_for_tool "cargo" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" cargo audit --json \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists cargo-audit; then
+if cmd_exists cargo-audit; then
   cargo audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif cmd_exists cargo && cargo audit --version &>/dev/null; then
   cargo audit --json > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
@@ -35,6 +29,14 @@ else
   log_warn "cargo-audit not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "cargo-audit failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then

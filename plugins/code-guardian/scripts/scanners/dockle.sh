@@ -31,22 +31,24 @@ EXIT_CODE=0
 
 DOCKER_IMAGE="goodwithtech/dockle:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "dockle" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" dockle --format json "$TARGET" \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+if cmd_exists dockle; then
+  dockle --format json "$TARGET" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif docker_available && docker image inspect "$TARGET" &>/dev/null; then
   docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
     "$DOCKER_IMAGE" --format json "$TARGET" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists dockle; then
-  dockle --format json "$TARGET" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "Dockle not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "Dockle failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then
@@ -54,7 +56,9 @@ if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then
     python3 -c "
 import json, sys
 try:
-    data = json.load(open('$RAW_OUTPUT'))
+    raw_path = sys.argv[1]
+    target_name = sys.argv[2]
+    data = json.load(open(raw_path))
     for detail in data.get('details', []):
         sev_map = {'FATAL': 'high', 'WARN': 'medium', 'INFO': 'low', 'SKIP': 'info', 'PASS': 'info'}
         finding = {
@@ -62,7 +66,7 @@ try:
             'severity': sev_map.get(detail.get('level', 'INFO'), 'info'),
             'rule': detail.get('code', ''),
             'message': detail.get('title', ''),
-            'file': '$TARGET',
+            'file': target_name,
             'line': 0,
             'autoFixable': False,
             'category': 'container'
@@ -71,7 +75,7 @@ try:
             print(json.dumps(finding))
 except Exception as e:
     print(json.dumps({'error': str(e)}), file=sys.stderr)
-" > "$FINDINGS_FILE"
+" "$RAW_OUTPUT" "$TARGET" > "$FINDINGS_FILE"
   fi
 fi
 

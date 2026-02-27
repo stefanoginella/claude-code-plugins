@@ -1,14 +1,18 @@
 ---
 name: code-guardian-setup
-description: Check and install security scanning tools for the detected stack
+description: Check security tool availability for the detected stack and show install instructions
 allowed-tools:
   - Bash
+  - Read
+  - Write
   - AskUserQuestion
 ---
 
 # Security Tools Setup
 
-Check which security tools are available for the project's detected stack and help install missing ones.
+Detect the project stack, check which security tools are available, and report what's missing with install instructions.
+
+This command does NOT install anything — it gives you a clear picture and copy-pasteable commands.
 
 ## Execution Flow
 
@@ -18,7 +22,7 @@ Check which security tools are available for the project's detected stack and he
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/detect-stack.sh .
 ```
 
-Display detected stack summary.
+Display detected stack: languages, frameworks, package managers, Docker, CI systems, IaC tools.
 
 ### Step 2: Check Tools
 
@@ -26,9 +30,9 @@ Display detected stack summary.
 echo '<stack_json>' | bash ${CLAUDE_PLUGIN_ROOT}/scripts/check-tools.sh
 ```
 
-### Step 2.5: Cache Detection Results
+### Step 3: Cache Results
 
-Save the stack and tools detection results so that future scan/ci commands can reuse them without re-detecting:
+Save detection results for future scan/ci commands:
 
 ```bash
 echo '<stack_json>' > /tmp/cg-stack.json
@@ -37,61 +41,102 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --write \
   --stack-file /tmp/cg-stack.json --tools-file /tmp/cg-tools.json
 ```
 
-### Step 3: Present Report
+### Step 4: Present Report
 
 Show a clear table of all needed tools:
 
 ```
-| Tool          | Category    | Status      | How Available        |
-|---------------|-------------|-------------|----------------------|
-| semgrep       | SAST        | Available   | Docker image         |
-| gitleaks      | Secrets     | Available   | Local binary         |
-| trivy         | Vuln scan   | MISSING     | —                    |
-| hadolint      | Container   | Available   | Docker image         |
+| Tool          | Category    | Status    | How Available        |
+|---------------|-------------|-----------|----------------------|
+| semgrep       | SAST        | Ready     | Local binary         |
+| gitleaks      | Secrets     | Ready     | Docker image         |
+| trivy         | Vuln scan   | MISSING   | —                    |
+| hadolint      | Container   | Ready     | Docker image         |
 ```
 
-### Step 4: Handle Missing Tools
+### Step 5: Show Install Instructions for Missing Tools
 
-If there are missing tools, present them one by one (or grouped if there are many). For each missing tool, use AskUserQuestion with these options:
+If there are missing tools, list them with install commands for the current OS:
 
-1. **Install now** — Run the install command (Docker pull if Docker available, otherwise package manager)
-2. **Show manual instructions** — Print the install commands for all available methods (Docker pull, brew/pip/npm/cargo, direct download) so the dev can run them on their own time. Do NOT run anything.
-3. **Skip this tool** — Skip it entirely. The scan will run without this tool and note it in the report.
+```
+Missing tools — install any you want, then re-run this command to verify:
 
-If multiple tools are missing, also offer a batch option upfront:
-- "Install all missing tools"
-- "Show manual instructions for all"
-- "Skip all missing tools"
-- "Handle one by one"
+  trivy:
+    brew install trivy
 
-Run only the installation commands the user explicitly approves.
+  checkov:
+    pip3 install checkov
 
-### Step 5: Verify
+  pip-audit:
+    pip3 install pip-audit
+```
 
-After any installations, re-run the tool check to verify everything is working.
+End with: "Scans will use whatever tools are available and skip the rest. Install what you need and run `/code-guardian:code-guardian-setup` again to verify."
 
-Report final status as a table showing:
-- Available tools (Docker or local) — ready to use
-- Skipped tools — will be excluded from scans
-- Failed installations — with troubleshooting hints
+If ESLint security is in the tool list, note that it requires the `eslint-plugin-security` package to be installed in the project (`npm install -D eslint-plugin-security`). Without it, the scanner will skip even if ESLint itself is available.
 
-### Step 5.5: Update Cache
+If all tools are available, just say so: "All recommended security tools are available. Run `/code-guardian:code-guardian-scan` to scan."
 
-After verification, overwrite the cache with the updated tools data (post-install results):
+### Step 6: Show Current Configuration
 
+Read the current config:
 ```bash
-echo '<stack_json>' > /tmp/cg-stack.json
-echo '<verified_tools_json>' > /tmp/cg-tools.json
-bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --write \
-  --stack-file /tmp/cg-stack.json --tools-file /tmp/cg-tools.json
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/read-config.sh --dump
 ```
 
-Tell the user: "Tool availability cached. Future scans will reuse these results (valid for 24 hours)."
+If a config file exists (`.claude/code-guardian.config.json`), display the current settings.
+
+If no config file exists, tell the user:
+> No configuration file found. Using defaults (all available tools, full codebase scope).
+
+Then ask with AskUserQuestion: "Would you like to configure scan defaults?"
+
+Options:
+- **Yes, configure now** — proceed to Step 7
+- **No, use defaults** — done
+
+### Step 7: Configure Scan Defaults (if requested)
+
+Ask with AskUserQuestion (multi-select): "Which tools do you want to run by default?" — list all available tools as options.
+
+Based on the answer, determine the config:
+- If the user selected ALL available tools → don't set `tools` (default runs everything)
+- If the user selected a subset → set `tools` to that list
+- Also ask: "Any tools you want to permanently disable?" — list all available tools. Set `disabled` for any selected.
+
+Write the config file `.claude/code-guardian.config.json`:
+
+```json
+{
+  "tools": ["semgrep", "gitleaks", "trivy"],
+  "disabled": ["trufflehog", "dockle"],
+  "scope": "codebase",
+  "autofix": false
+}
+```
+
+Only include keys the user explicitly configured. Omitted keys use defaults.
+
+Tell the user: "Configuration saved to `.claude/code-guardian.config.json`. CLI arguments always override these defaults."
+
+## Configuration File Reference
+
+**Location**: `.claude/code-guardian.config.json`
+
+| Key        | Type     | Default        | Description                                           |
+|------------|----------|----------------|-------------------------------------------------------|
+| `tools`    | string[] | (all available) | Only run these tools. Omit to run all available.     |
+| `disabled` | string[] | (none)          | Never run these tools, even if available.            |
+| `scope`    | string   | `"codebase"`    | Default scan scope: codebase, uncommitted, unpushed. |
+| `autofix`  | boolean  | `false`         | Auto-fix findings by default.                        |
+
+**Precedence**: CLI `--tools` / `--scope` / `--autofix` always override config values.
+
+**`tools` vs `disabled`**: Use `tools` to whitelist (only run these). Use `disabled` to blacklist (run everything except these). If both are set, `tools` takes precedence.
 
 ## Important Notes
 
-- Always prefer Docker images when Docker is available (consistent versions, no system pollution)
-- Never install tools without user confirmation
-- Show the exact commands that will be run before executing them
-- After installation, verify the tool works by running its version/help command
-- Skipped tools are fine — the scan will work with whatever is available and note what was skipped
+- This command is read-only by default — it only writes the config file if the user opts in
+- Tool availability is cached for 24 hours so future scans skip re-detection
+- Scans work fine with partial tool coverage — missing tools just mean fewer checks
+- The config file should be committed to the repo so the team shares the same defaults

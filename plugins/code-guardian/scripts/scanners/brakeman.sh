@@ -23,22 +23,24 @@ EXIT_CODE=0
 
 DOCKER_IMAGE="presidentbeef/brakeman:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "brakeman" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" brakeman --format json --quiet --no-pager \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+if cmd_exists brakeman; then
+  brakeman --format json --quiet --no-pager > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
   docker run --rm -v "$(pwd):/code" \
     "$DOCKER_IMAGE" --format json --quiet --no-pager /code \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists brakeman; then
-  brakeman --format json --quiet --no-pager > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "Brakeman not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "Brakeman failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then

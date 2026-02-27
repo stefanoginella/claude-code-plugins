@@ -38,24 +38,29 @@ log_step "Running Hadolint (Dockerfile linting)..."
 
 DOCKER_IMAGE="hadolint/hadolint:latest"
 
+HADOLINT_AVAILABLE=false
 for dockerfile in "${DOCKERFILES[@]}"; do
   RAW_OUTPUT=$(mktemp /tmp/cg-hadolint-XXXXXX.json)
+  EXIT_CODE=0
 
-  CONTAINER_SVC=$(get_container_service_for_tool "hadolint" 2>/dev/null || true)
-
-  if [[ -n "$CONTAINER_SVC" ]]; then
-    log_info "Running in project container ($CONTAINER_SVC)"
-    $(get_compose_cmd) exec -T "$CONTAINER_SVC" hadolint --format json "$dockerfile" \
-      > "$RAW_OUTPUT" 2>/dev/null || true
+  if cmd_exists hadolint; then
+    HADOLINT_AVAILABLE=true
+    hadolint --format json "$dockerfile" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
   elif docker_available; then
+    HADOLINT_AVAILABLE=true
     docker run --rm -i "$DOCKER_IMAGE" hadolint --format json - \
-      < "$dockerfile" > "$RAW_OUTPUT" 2>/dev/null || true
-  elif cmd_exists hadolint; then
-    hadolint --format json "$dockerfile" > "$RAW_OUTPUT" 2>/dev/null || true
+      < "$dockerfile" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
   else
     log_warn "Hadolint not available, skipping"
     rm -f "$RAW_OUTPUT"
     exit 0
+  fi
+
+  # Detect tool failure: non-zero exit with no usable output
+  if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+    log_error "Hadolint failed on $dockerfile (exit code $EXIT_CODE)"
+    rm -f "$RAW_OUTPUT"
+    continue
   fi
 
   if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then
@@ -63,7 +68,9 @@ for dockerfile in "${DOCKERFILES[@]}"; do
       python3 -c "
 import json, sys
 try:
-    data = json.load(open('$RAW_OUTPUT'))
+    raw_path = sys.argv[1]
+    dockerfile_path = sys.argv[2]
+    data = json.load(open(raw_path))
     for item in data:
         sev_map = {'error': 'high', 'warning': 'medium', 'info': 'low', 'style': 'info'}
         finding = {
@@ -71,7 +78,7 @@ try:
             'severity': sev_map.get(item.get('level', 'info'), 'info'),
             'rule': item.get('code', ''),
             'message': item.get('message', ''),
-            'file': '$dockerfile',
+            'file': dockerfile_path,
             'line': item.get('line', 0),
             'autoFixable': False,
             'category': 'container'
@@ -79,7 +86,7 @@ try:
         print(json.dumps(finding))
 except Exception as e:
     pass
-" >> "$FINDINGS_FILE"
+" "$RAW_OUTPUT" "$dockerfile" >> "$FINDINGS_FILE"
     fi
   fi
   rm -f "$RAW_OUTPUT"

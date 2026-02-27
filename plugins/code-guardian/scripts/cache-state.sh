@@ -73,9 +73,10 @@ import json, sys, datetime, os
 
 stack = json.load(open(sys.argv[1]))
 tools = json.load(open(sys.argv[2]))
+cache_version = int(sys.argv[3])
 
 cache = {
-    'version': $CACHE_VERSION,
+    'version': cache_version,
     'cachedAt': datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'),
     'projectPath': os.path.abspath('.'),
     'stack': stack,
@@ -84,7 +85,7 @@ cache = {
 
 json.dump(cache, sys.stdout, indent=2)
 print()
-" "$stack_file" "$tools_file" > "$tmpfile"
+" "$stack_file" "$tools_file" "$CACHE_VERSION" > "$tmpfile"
 
   mv "$tmpfile" "$CACHE_FILE"
   log_ok "Cache written to $CACHE_FILE"
@@ -106,14 +107,18 @@ do_read() {
   result=$(python3 -c "
 import json, sys, datetime, os
 
+cache_file = sys.argv[1]
+cache_version = int(sys.argv[2])
+max_age_secs = int(sys.argv[3])
+
 try:
-    cache = json.load(open('$CACHE_FILE'))
+    cache = json.load(open(cache_file))
 except (json.JSONDecodeError, FileNotFoundError):
     print('invalid')
     sys.exit(0)
 
 # Version check
-if cache.get('version') != $CACHE_VERSION:
+if cache.get('version') != cache_version:
     print('invalid')
     sys.exit(0)
 
@@ -128,12 +133,12 @@ cached_at = cached_at.replace(tzinfo=datetime.timezone.utc)
 now = datetime.datetime.now(datetime.timezone.utc)
 age_seconds = (now - cached_at).total_seconds()
 
-if age_seconds >= $max_age:
+if age_seconds >= max_age_secs:
     print('stale')
     sys.exit(0)
 
 print('fresh')
-" 2>/dev/null) || { exit 1; }
+" "$CACHE_FILE" "$CACHE_VERSION" "$max_age" 2>/dev/null) || { exit 1; }
 
   case "$result" in
     fresh)

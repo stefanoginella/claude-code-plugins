@@ -45,28 +45,29 @@ esac
 
 DOCKER_IMAGE="aquasec/trivy:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "trivy" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" trivy "${TRIVY_ARGS[@]}" \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+if cmd_exists trivy; then
+  trivy "${TRIVY_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
-  local_args=("${TRIVY_ARGS[@]}")
   docker_run_args=("--rm" "-v" "$(pwd):/workspace" "-w" "/workspace")
   # For image scanning, need Docker socket
   [[ "$MODE" == "image" ]] && docker_run_args+=("-v" "/var/run/docker.sock:/var/run/docker.sock")
   # Trivy cache
   docker_run_args+=("-v" "${HOME}/.cache/trivy:/root/.cache/")
 
-  docker run "${docker_run_args[@]}" "$DOCKER_IMAGE" "${local_args[@]}" \
+  docker run "${docker_run_args[@]}" "$DOCKER_IMAGE" "${TRIVY_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists trivy; then
-  trivy "${TRIVY_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "Trivy not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "Trivy failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 # Parse trivy JSON output
@@ -129,6 +130,33 @@ except Exception as e:
 fi
 
 rm -f "$RAW_OUTPUT"
+
+# Post-filter findings to scope if scope file provided
+if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$FINDINGS_FILE" ]]; then
+  FILTERED=$(mktemp /tmp/cg-trivy-filtered-XXXXXX.jsonl)
+  python3 -c "
+import json, sys
+scope_files = set()
+with open(sys.argv[1]) as f:
+    for line in f:
+        line = line.strip()
+        if line:
+            scope_files.add(line)
+            scope_files.add(line.lstrip('./'))
+with open(sys.argv[2]) as f:
+    for line in f:
+        line = line.strip()
+        if not line: continue
+        try:
+            finding = json.loads(line)
+            fpath = finding.get('file', '').lstrip('./')
+            if fpath in scope_files or any(fpath == s.lstrip('./') for s in scope_files):
+                print(line)
+        except json.JSONDecodeError:
+            continue
+" "$SCOPE_FILE" "$FINDINGS_FILE" > "$FILTERED"
+  mv "$FILTERED" "$FINDINGS_FILE"
+fi
 
 count=$(wc -l < "$FINDINGS_FILE" | tr -d ' ')
 if [[ "$count" -gt 0 ]]; then
