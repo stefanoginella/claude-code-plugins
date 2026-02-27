@@ -143,23 +143,11 @@ npm install
 npx vitest
 ```
 
-### Dependency Check (SessionStart)
-
-Outputs a system message at session start listing the required BMAD plugins, so Claude can warn early if a pipeline is invoked without the necessary dependencies.
-
 ## 🔐 Permissions
 
 The pipelines run various bash commands (depending on the project), skills and MCP that Claude Code will prompt you to approve if they are not already approved.
 
 Many bash commands are already pre-approved by the safe bash auto-approval hook, but some might still require manual approval, especially if you have custom steps or a unique project setup that involves commands not in the default safe list. For the first few runs in a new project, expect several approval prompts as the allow list builds up. After that, things stabilize and the pipelines run fully autonomously.
-
-I recommend adding these to your project's `.claude/settings.json` under `permissions.allow` to avoid repeated prompts:
-
-- "WebSearch"
-- "WebFetch"
-- "mcp__ide__getDiagnostics"
-- "mcp__plugin_context7_context7__resolve-library-id"
-- "mcp__plugin_context7_context7__query-docs"
 
 > ⚠️ Alternatively, you can run Claude Code in "dangerously skip permissions" mode (`--dangerously-skip-permissions`), but do so at your own risk — this disables **all** permission checks, not just the ones above. Only use it in an isolated environment like a VM or container.
 
