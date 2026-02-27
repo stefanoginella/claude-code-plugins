@@ -1,7 +1,6 @@
 {
-  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "custom-claude-code-plugins",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Collection of opinionated Claude Code plugins — built by a solo dev for solo devs. Check check https://github.com/stefanoginella/claude-code-plugins/ for details.",
   "owner": {
     "name": "Stefano Ginella",
@@ -10,9 +9,15 @@
   "plugins": [
     {
       "name": "auto-bmad",
-      "description": "Automated and opinionated BMAD pipeline orchestration: plan, epic-start, story, and epic-end workflows with configurable safe-bash auto-approval, check https://github.com/stefanoginella/claude-code-plugins/blob/main/plugins/auto-bmad/README.md for details",
+      "description": "Automated and opinionated BMAD pipeline orchestration: plan, epic-start, story, and epic-end workflows with configurable safe-bash auto-approval.",
       "source": "./plugins/auto-bmad",
       "category": "development"
+    },
+    {
+      "name": "code-guardian",
+      "description": "[EXPERIMENTAL] Deterministic security scanning layer for Claude Code. Auto-detects stack, runs open-source security CLI tools (SAST, secrets, dependencies, containers, IaC), auto-fixes issues, and recommends CI additions. Supports interactive and yolo modes.",
+      "source": "./plugins/code-guardian",
+      "category": "security"
     }
   ]
 }
