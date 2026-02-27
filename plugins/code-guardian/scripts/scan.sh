@@ -265,9 +265,9 @@ done
 
 # ── Summary ───────────────────────────────────────────────────────────
 total=$(wc -l < "$MERGED_FILE" | tr -d ' ')
-high=$(grep -c '"severity":"high"' "$MERGED_FILE" 2>/dev/null || echo 0)
-medium=$(grep -c '"severity":"medium"' "$MERGED_FILE" 2>/dev/null || echo 0)
-low=$(grep -c '"severity":"low"' "$MERGED_FILE" 2>/dev/null || echo 0)
+high=$(grep -c '"severity":"high"' "$MERGED_FILE" 2>/dev/null) || high=0
+medium=$(grep -c '"severity":"medium"' "$MERGED_FILE" 2>/dev/null) || medium=0
+low=$(grep -c '"severity":"low"' "$MERGED_FILE" 2>/dev/null) || low=0
 
 echo "" >&2
 log_step "Scan complete"
