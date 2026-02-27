@@ -117,6 +117,16 @@ Always end with these sections:
    > Run `/code-guardian:code-guardian-setup` to see all tool status.
 5. **CI recommendation** — if no CI security scanning detected, suggest `/code-guardian:code-guardian-ci`
 
+## Scope & Dependency Scanners
+
+Dependency audit tools (npm-audit, pip-audit, cargo-audit, bundler-audit, govulncheck, osv-scanner) scan lockfiles/manifests that are project-wide — the concept of "only check uncommitted files" doesn't apply to them.
+
+When `--scope` is `uncommitted` or `unpushed`, dependency scanners are **automatically skipped** unless their manifest or lockfile (e.g. `package-lock.json`, `Cargo.lock`, `go.sum`) appears in the changed files. This prevents noisy, irrelevant dependency findings when scanning just your recent work.
+
+When `--scope` is `codebase` (default), all scanners run as normal.
+
+Skipped dependency scanners are reported in the final summary under "Skipped (no manifest in scope)".
+
 ## Important Notes
 
 - Never modify files outside the project directory

@@ -193,6 +193,22 @@ get_tool_install_cmd() {
   echo "${!var_name:-}"
 }
 
+# Get manifest/lockfiles that a dependency scanner cares about
+# Returns space-separated list of file patterns (basenames)
+# Empty string means the tool is file-based and doesn't need manifest checking
+get_tool_manifest_files() {
+  local tool="$1"
+  case "$tool" in
+    npm-audit)      echo "package-lock.json yarn.lock pnpm-lock.yaml bun.lockb bun.lock package.json" ;;
+    pip-audit)      echo "requirements.txt pyproject.toml setup.py Pipfile Pipfile.lock" ;;
+    cargo-audit)    echo "Cargo.lock Cargo.toml" ;;
+    bundler-audit)  echo "Gemfile.lock Gemfile" ;;
+    govulncheck)    echo "go.mod go.sum" ;;
+    osv-scanner)    echo "package-lock.json yarn.lock pnpm-lock.yaml bun.lockb bun.lock package.json requirements.txt pyproject.toml Pipfile.lock go.mod go.sum Cargo.lock Gemfile.lock composer.lock pom.xml build.gradle build.gradle.kts packages.config .csproj" ;;
+    *)              echo "" ;;
+  esac
+}
+
 # Get tool category
 get_tool_category() {
   local tool="$1"

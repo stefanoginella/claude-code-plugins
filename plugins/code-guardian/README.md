@@ -30,7 +30,7 @@ Auto-detects your project's tech stack and runs appropriate open-source CLI tool
 
 | Option | Values | Default | Description |
 |--------|--------|---------|-------------|
-| `--scope` | `codebase`, `uncommitted`, `unpushed` | `codebase` | What files to scan. `codebase` = all tracked files. `uncommitted` = staged + unstaged + untracked changes. `unpushed` = commits not yet pushed to remote. |
+| `--scope` | `codebase`, `uncommitted`, `unpushed` | `codebase` | What files to scan. `codebase` = all tracked files. `uncommitted` = staged + unstaged + untracked changes. `unpushed` = commits not yet pushed to remote. When scoped, dependency scanners (npm-audit, pip-audit, etc.) are skipped unless their lockfile/manifest is in the changed files. |
 | `--tools` | comma-separated tool names | all available | Only run these specific tools (e.g. `--tools semgrep,gitleaks`). Others are skipped. |
 | `--autofix` | — | off | Run tools with auto-fix flags and let the security-fixer agent handle the rest. |
 | `--refresh` | — | off | Force re-detection of stack and tools, ignoring the 24-hour cache. |

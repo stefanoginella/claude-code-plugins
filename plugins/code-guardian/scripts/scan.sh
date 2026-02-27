@@ -185,6 +185,25 @@ for tool in "${needed_tools[@]}"; do
     $is_disabled && continue
   fi
 
+  # Skip dependency scanners when scoped, unless their manifest/lockfiles changed
+  if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]]; then
+    manifest_files=$(get_tool_manifest_files "$tool")
+    if [[ -n "$manifest_files" ]]; then
+      manifest_in_scope=false
+      for mf in $manifest_files; do
+        # Match basename anywhere in path (e.g. "packages/foo/package.json")
+        if grep -qE "(^|/)${mf}$" "$SCOPE_FILE" 2>/dev/null; then
+          manifest_in_scope=true
+          break
+        fi
+      done
+      if ! $manifest_in_scope; then
+        SCOPE_SKIPPED_SCANNERS+=("$tool")
+        continue
+      fi
+    fi
+  fi
+
   if [[ ${#available_tools[@]} -gt 0 ]]; then
     for avail in "${available_tools[@]}"; do
       if [[ "$avail" == "$tool" ]]; then
@@ -212,6 +231,7 @@ ALL_FINDINGS=()
 ALL_SUMMARIES=()
 FAILED_SCANNERS=()
 SKIPPED_SCANNERS=()
+SCOPE_SKIPPED_SCANNERS=()
 
 for scanner in "${scanners_to_run[@]}"; do
   SCANNER_SCRIPT="${SCRIPT_DIR}/scanners/${scanner}.sh"
@@ -272,6 +292,9 @@ low=$(grep -c '"severity":"low"' "$MERGED_FILE" 2>/dev/null) || low=0
 echo "" >&2
 log_step "Scan complete"
 echo "" >&2
+if [[ ${#SCOPE_SKIPPED_SCANNERS[@]} -gt 0 ]]; then
+  log_info "Skipped (no manifest in scope): ${SCOPE_SKIPPED_SCANNERS[*]}"
+fi
 if [[ ${#SKIPPED_SCANNERS[@]} -gt 0 ]]; then
   log_info "Skipped scanners (${#SKIPPED_SCANNERS[@]}): ${SKIPPED_SCANNERS[*]}"
 fi
@@ -304,6 +327,10 @@ skipped_json="[]"
 if [[ ${#SKIPPED_SCANNERS[@]} -gt 0 ]]; then
   skipped_json=$(printf '["%s"]' "$(IFS='","'; echo "${SKIPPED_SCANNERS[*]}")")
 fi
+scope_skipped_json="[]"
+if [[ ${#SCOPE_SKIPPED_SCANNERS[@]} -gt 0 ]]; then
+  scope_skipped_json=$(printf '["%s"]' "$(IFS='","'; echo "${SCOPE_SKIPPED_SCANNERS[*]}")")
+fi
 failed_json="[]"
 if [[ ${#FAILED_SCANNERS[@]} -gt 0 ]]; then
   failed_json=$(printf '["%s"]' "$(IFS='","'; echo "${FAILED_SCANNERS[*]}")")
@@ -322,6 +349,7 @@ cat <<EOF
   "low": $low,
   "scannersRun": $(printf '["%s"]' "$(IFS='","'; echo "${scanners_to_run[*]}")"),
   "skippedScanners": $skipped_json,
+  "scopeSkippedScanners": $scope_skipped_json,
   "failedScanners": $failed_json,
   "summaries": $summaries_json
 }
