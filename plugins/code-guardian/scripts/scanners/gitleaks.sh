@@ -26,18 +26,22 @@ EXIT_CODE=0
 
 GITLEAKS_ARGS=("detect" "--source" "." "--report-format" "json" "--report-path" "$RAW_OUTPUT" "--no-banner")
 
-DOCKER_IMAGE="zricethezav/gitleaks:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists gitleaks; then
   gitleaks "${GITLEAKS_ARGS[@]}" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker run --rm -v "$(pwd):/workspace" -w /workspace \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  REPORT_DIR=$(mktemp -d /tmp/cg-gitleaks-report-XXXXXX)
+  docker run --rm --network none \
+    -v "$(pwd):/workspace:ro" -v "$REPORT_DIR:/report" -w /workspace \
     "$DOCKER_IMAGE" detect --source /workspace \
-    --report-format json --report-path /workspace/.gitleaks-report.json \
+    --report-format json --report-path /report/gitleaks-report.json \
     --no-banner 2>/dev/null || EXIT_CODE=$?
-  [[ -f .gitleaks-report.json ]] && mv .gitleaks-report.json "$RAW_OUTPUT"
+  [[ -f "$REPORT_DIR/gitleaks-report.json" ]] && mv "$REPORT_DIR/gitleaks-report.json" "$RAW_OUTPUT"
+  rm -rf "$REPORT_DIR"
 else
-  log_warn "Gitleaks not available, skipping"
+  log_skip_tool "Gitleaks"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

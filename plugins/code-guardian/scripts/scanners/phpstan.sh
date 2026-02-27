@@ -37,7 +37,7 @@ log_step "Running PHPStan (PHP static analysis)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-phpstan-XXXXXX.json)
 EXIT_CODE=0
 
-DOCKER_IMAGE="ghcr.io/phpstan/phpstan:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 # Determine analysis paths as an array
 ANALYSIS_PATHS=(".")
@@ -65,12 +65,13 @@ if cmd_exists phpstan; then
 elif [[ -f vendor/bin/phpstan ]]; then
   vendor/bin/phpstan "${PHPSTAN_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker run --rm -v "$(pwd):/app" -w /app \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  docker run --rm --network none -v "$(pwd):/app:ro" -w /app \
     "$DOCKER_IMAGE" "${PHPSTAN_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "PHPStan not available, skipping"
+  log_skip_tool "PHPStan"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

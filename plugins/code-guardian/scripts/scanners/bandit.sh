@@ -50,20 +50,21 @@ if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]] && [[ -s "$SCOPE_FILE" ]]; t
   fi
 fi
 
-DOCKER_IMAGE="python:3-slim"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists bandit; then
   bandit "${BANDIT_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
   # Write args to a temp file to avoid shell quoting issues in sh -c
   ARGS_FILE=$(mktemp /tmp/cg-bandit-args-XXXXXX)
   printf '%s\0' "${BANDIT_ARGS[@]}" > "$ARGS_FILE"
-  docker run --rm -v "$(pwd):/src" -v "$ARGS_FILE:/tmp/bandit-args" -w /src \
+  docker run --rm -v "$(pwd):/src:ro" -v "$ARGS_FILE:/tmp/bandit-args:ro" -w /src \
     "$DOCKER_IMAGE" sh -c 'pip install -q bandit && xargs -0 bandit < /tmp/bandit-args' \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
   rm -f "$ARGS_FILE"
 else
-  log_warn "Bandit not available, skipping"
+  log_skip_tool "Bandit"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

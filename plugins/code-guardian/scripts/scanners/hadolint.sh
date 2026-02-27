@@ -36,7 +36,7 @@ fi
 
 log_step "Running Hadolint (Dockerfile linting)..."
 
-DOCKER_IMAGE="hadolint/hadolint:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 HADOLINT_AVAILABLE=false
 for dockerfile in "${DOCKERFILES[@]}"; do
@@ -46,12 +46,13 @@ for dockerfile in "${DOCKERFILES[@]}"; do
   if cmd_exists hadolint; then
     HADOLINT_AVAILABLE=true
     hadolint --format json "$dockerfile" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-  elif docker_available; then
+  elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
     HADOLINT_AVAILABLE=true
-    docker run --rm -i "$DOCKER_IMAGE" hadolint --format json - \
+    log_info "Using Docker image: $DOCKER_IMAGE"
+    docker run --rm --network none -i "$DOCKER_IMAGE" hadolint --format json - \
       < "$dockerfile" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
   else
-    log_warn "Hadolint not available, skipping"
+    log_skip_tool "Hadolint"
     rm -f "$RAW_OUTPUT"
     exit 0
   fi

@@ -202,24 +202,22 @@ get_tool_category() {
 }
 
 # Check if a tool is available (local binary or Docker image)
-# Returns: "local", "docker", or "unavailable"
+# Returns: "local", "docker", "docker-available", or "unavailable"
 check_tool_availability() {
   local tool="$1"
   local binary docker_image
   binary=$(get_tool_binary "$tool")
   docker_image=$(get_tool_docker_image "$tool")
 
-  # 1. Local binary (fastest, explicitly installed)
   if cmd_exists "$binary"; then
     echo "local"
-    return
+  elif [[ -n "$docker_image" ]] && docker_available; then
+    if docker_fallback_enabled; then
+      echo "docker"
+    else
+      echo "docker-available"
+    fi
+  else
+    echo "unavailable"
   fi
-
-  # 2. Docker image (reliable fallback)
-  if [[ -n "$docker_image" ]] && docker_available; then
-    echo "docker"
-    return
-  fi
-
-  echo "unavailable"
 }

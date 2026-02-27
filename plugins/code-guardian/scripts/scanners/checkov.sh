@@ -36,16 +36,17 @@ EXIT_CODE=0
 
 CHECKOV_ARGS=("-d" "." "--output" "json" "--quiet" "--compact")
 
-DOCKER_IMAGE="bridgecrew/checkov:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists checkov; then
   checkov "${CHECKOV_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker run --rm -v "$(pwd):/tf" -w /tf \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  docker run --rm --network none -v "$(pwd):/tf:ro" -w /tf \
     "$DOCKER_IMAGE" "${CHECKOV_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "Checkov not available, skipping"
+  log_skip_tool "Checkov"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

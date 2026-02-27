@@ -21,16 +21,17 @@ log_step "Running Brakeman (Rails SAST)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-brakeman-XXXXXX.json)
 EXIT_CODE=0
 
-DOCKER_IMAGE="presidentbeef/brakeman:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists brakeman; then
   brakeman --format json --quiet --no-pager > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker run --rm -v "$(pwd):/code" \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  docker run --rm --network none -v "$(pwd):/code:ro" \
     "$DOCKER_IMAGE" --format json --quiet --no-pager /code \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "Brakeman not available, skipping"
+  log_skip_tool "Brakeman"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

@@ -30,6 +30,18 @@ _cfg_tools=$(_cfg_read tools)
 _cfg_disabled=$(_cfg_read disabled)
 [[ -n "$_cfg_disabled" ]] && DISABLED_TOOLS="$_cfg_disabled"
 
+# Docker fallback: env > config > default (false)
+if [[ -z "${CG_DOCKER_FALLBACK:-}" ]]; then
+  _cfg_docker=$(_cfg_read dockerFallback)
+  if [[ "$_cfg_docker" == "true" ]]; then
+    export CG_DOCKER_FALLBACK=1
+  else
+    export CG_DOCKER_FALLBACK=0
+  fi
+else
+  export CG_DOCKER_FALLBACK
+fi
+
 # CLI args override config
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -69,6 +81,7 @@ log_step "Security scan started"
 log_info "Scope: $SCOPE"
 [[ -n "$BASE_REF" ]] && log_info "Base ref: $BASE_REF"
 $AUTOFIX && log_info "Mode: YOLO (autofix enabled)"
+[[ "$CG_DOCKER_FALLBACK" == "1" ]] && log_info "Docker fallback: enabled" || log_info "Docker fallback: disabled (local tools only)"
 echo "" >&2
 
 # Get scope file
@@ -182,7 +195,7 @@ for tool in "${needed_tools[@]}"; do
   else
     # No tools JSON provided — check availability directly
     status=$(check_tool_availability "$tool")
-    [[ "$status" != "unavailable" ]] && scanners_to_run+=("$tool")
+    [[ "$status" == "local" || "$status" == "docker" ]] && scanners_to_run+=("$tool")
   fi
 done
 
@@ -215,7 +228,11 @@ for scanner in "${scanners_to_run[@]}"; do
   # Run scanner — capture stdout (last line = findings file path) and exit code
   findings_file=""
   scanner_exit=0
-  findings_file=$(bash "$SCANNER_SCRIPT" "${SCANNER_ARGS[@]}" | tail -1) || scanner_exit=$?
+  scanner_docker_image=$(get_tool_docker_image "$scanner")
+  findings_file=$(
+    CG_DOCKER_IMAGE="$scanner_docker_image" \
+    bash "$SCANNER_SCRIPT" "${SCANNER_ARGS[@]}" | tail -1
+  ) || scanner_exit=$?
 
   if [[ $scanner_exit -eq 2 ]]; then
     # Exit 2 = tool failure (not "findings found")

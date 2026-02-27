@@ -6,7 +6,7 @@
 
 Deterministic security scanning layer for Claude Code.
 
-Auto-detects your project's tech stack and runs appropriate open-source CLI tools (SAST, secret detection, dependency auditing, container and IaC scanning) to find and fix vulnerabilities. Every tool is free for private repositories, runs via Docker when available, and produces a unified findings format so Claude can process results consistently. Two modes: **interactive** (review findings and choose what to fix) or **yolo** (auto-fix everything possible, then let Claude handle the rest).
+Auto-detects your project's tech stack and runs appropriate open-source CLI tools (SAST, secret detection, dependency auditing, container and IaC scanning) to find and fix vulnerabilities. Every tool is free for private repositories, prefers local binaries, and produces a unified findings format so Claude can process results consistently. Docker is available as an opt-in fallback with pinned versions, read-only mounts, and network isolation. Two modes: **interactive** (review findings and choose what to fix) or **yolo** (auto-fix everything possible, then let Claude handle the rest).
 
 > 🔧 The plugin ships 18 scanner wrappers and 4 orchestration scripts. The actual security analysis is deterministic (real CLI tools, not AI guessing) — Claude orchestrates the flow and handles the code-level fixes that tools can't auto-fix.
 
@@ -20,7 +20,7 @@ Auto-detects your project's tech stack and runs appropriate open-source CLI tool
 
 ## 🛠 Typical Workflow
 
-1. **Run `/code-guardian:code-guardian-setup`** to check what security tools are available for your project's stack. The plugin auto-detects languages, frameworks, Docker, CI systems, and IaC, then reports which tools are available (via Docker or local binary) and which are missing with install commands.
+1. **Run `/code-guardian:code-guardian-setup`** to check what security tools are available for your project's stack. The plugin auto-detects languages, frameworks, Docker, CI systems, and IaC, then reports which tools are installed locally, which have Docker images available (opt-in fallback), and which are missing with install commands.
 2. **Run `/code-guardian:code-guardian-scan`** to kick off a security scan. You'll be asked to choose a mode and scope.
 3. **Review the findings** — in interactive mode, findings are grouped by severity with a summary table. Choose to fix all high-severity issues, all auto-fixable issues, specific findings, or just report.
 4. **Let the tools and Claude fix things** — tools with autofix support (Semgrep, ESLint, npm audit) handle what they can, and the security-fixer agent takes care of the rest with targeted code-level fixes.
@@ -56,7 +56,8 @@ Scan defaults can be persisted in `.claude/code-guardian.config.json` so you don
   "tools": ["semgrep", "gitleaks", "trivy"],
   "disabled": ["trufflehog"],
   "scope": "uncommitted",
-  "autofix": false
+  "autofix": false,
+  "dockerFallback": false
 }
 ```
 
@@ -66,8 +67,9 @@ Scan defaults can be persisted in `.claude/code-guardian.config.json` so you don
 | `disabled` | `string[]` | none | Never run these tools, even if available. |
 | `scope` | `string` | `"codebase"` | Default scan scope: `codebase`, `uncommitted`, or `unpushed`. |
 | `autofix` | `boolean` | `false` | Auto-fix findings by default. |
+| `dockerFallback` | `boolean` | `false` | Allow Docker images as fallback for tools not installed locally. |
 
-**Precedence:** CLI flags always win over config values. If both `tools` and `disabled` are set, `tools` takes precedence. Omitted keys use built-in defaults.
+**Precedence:** CLI flags always win over config values. `CG_DOCKER_FALLBACK=1` env var overrides the config `dockerFallback` setting. If both `tools` and `disabled` are set, `tools` takes precedence. Omitted keys use built-in defaults.
 
 This file should be committed to the repo so the team shares the same scan defaults.
 
@@ -114,7 +116,7 @@ All tools are free, open-source, and work on private repositories with no limita
 | Container | Dockle | Docker images (manual) | No | `goodwithtech/dockle` |
 | IaC | Checkov | Terraform, CFN, K8s | No | `bridgecrew/checkov` |
 
-> ⚠️ Tools without a Docker image require local installation. The plugin will tell you exactly what to install and how — or you can run `/code-guardian:code-guardian-setup` to walk through it interactively.
+> Local installation is the recommended method for all tools. Tools with Docker images can optionally use Docker as a fallback when `dockerFallback` is enabled — see [Configuration](#️-configuration). Tools without a Docker image always require local installation. Run `/code-guardian:code-guardian-setup` to see what's needed and get install commands.
 
 ## 📦 Installation
 
@@ -146,19 +148,19 @@ claude --plugin-dir /path/to/plugins/code-guardian
 - `bash` — shell scripts
 - `python3` — JSON parsing in scanner output processing
 
-### Recommended
+### Optional
 
-- **Docker** — the plugin falls back to official Docker images when tools aren't installed locally. This avoids installation headaches and ensures tools are always available. Without Docker, tools must be installed locally.
+- **Docker** — when explicitly opted in via `"dockerFallback": true` in config, the plugin can use official Docker images as a fallback for tools not installed locally. Docker images are pinned to specific versions, mounted read-only, and run with network isolation where possible. Without Docker or without opt-in, all tools must be installed locally.
 
 ### Security Tools
 
 You don't need to install anything upfront. Run `/code-guardian:code-guardian-setup` and the plugin will:
 1. Detect your stack
 2. Show which tools are needed
-3. Report which are available via Docker or locally
+3. Report which are installed locally vs. available via Docker
 4. Show install commands for anything missing
 
-Tools with Docker images work out of the box if Docker is running — no local installation needed.
+Local installation is the primary execution method. Docker fallback is available as an opt-in alternative.
 
 ## 🏗 Architecture
 
@@ -187,10 +189,14 @@ code-guardian/
 
 ### How the Deterministic Layer Works
 
-Each scanner wrapper follows a two-tier execution strategy:
+Each scanner wrapper follows a local-first execution strategy:
 
-1. **Local binary** — If the tool is installed locally, it runs directly. Fastest option, zero overhead, respects your installed version and configuration.
-2. **Docker image** — If the tool isn't installed locally but Docker is available, it runs via the tool's official Docker image (pulled on demand). Consistent version, no local installation needed.
+1. **Local binary** (default) — If the tool is installed locally, it runs directly. Fastest option, zero overhead, respects your installed version and configuration.
+2. **Docker image** (opt-in fallback) — If the tool isn't installed locally and Docker fallback is enabled (`"dockerFallback": true` in config or `CG_DOCKER_FALLBACK=1` env var), it runs via the tool's official Docker image with hardened security controls:
+   - **Pinned versions** — Docker images use exact version tags from the tool registry, never `:latest`
+   - **Read-only mounts** — Source code is mounted `:ro` (except for autofix mode in Semgrep)
+   - **Network isolation** — `--network none` for tools that don't need network access (gitleaks, hadolint, checkov, gosec, brakeman, trufflehog, phpstan, osv-scanner, dockle)
+   - **Minimal socket access** — Docker socket only mounted for image-scanning tools (trivy image mode, dockle)
 
 After choosing the execution environment, each wrapper:
 1. Runs the tool with appropriate flags for the requested scope

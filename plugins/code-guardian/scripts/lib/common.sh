@@ -29,6 +29,22 @@ docker_available() {
   cmd_exists docker && docker info &>/dev/null
 }
 
+# Check if Docker fallback is opted in (set by orchestrator or env)
+docker_fallback_enabled() {
+  [[ "${CG_DOCKER_FALLBACK:-0}" == "1" ]]
+}
+
+# Log skip message with Docker fallback hint when applicable
+log_skip_tool() {
+  local tool_name="$1"
+  if [[ -n "${CG_DOCKER_IMAGE:-}" ]] && docker_available; then
+    log_warn "$tool_name not installed locally (Docker fallback disabled), skipping"
+    log_info "  Install locally or enable Docker fallback in .claude/code-guardian.config.json"
+  else
+    log_warn "$tool_name not available, skipping"
+  fi
+}
+
 # Output a JSON finding to stdout
 # Usage: emit_finding <tool> <severity> <rule> <message> <file> <line> <autofixable> <category>
 emit_finding() {

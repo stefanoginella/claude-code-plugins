@@ -17,17 +17,18 @@ log_step "Running OSV-Scanner (universal dependency vulnerabilities)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-osv-scanner-XXXXXX.json)
 EXIT_CODE=0
 
-DOCKER_IMAGE="ghcr.io/google/osv-scanner:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists osv-scanner; then
   osv-scanner --format json -r . \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker run --rm -v "$(pwd):/workspace" -w /workspace \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  docker run --rm --network none -v "$(pwd):/workspace:ro" -w /workspace \
     "$DOCKER_IMAGE" --format json -r /workspace \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "OSV-Scanner not available, skipping"
+  log_skip_tool "OSV-Scanner"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

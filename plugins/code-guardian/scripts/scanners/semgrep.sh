@@ -38,18 +38,20 @@ fi
 RAW_OUTPUT=$(mktemp /tmp/cg-semgrep-XXXXXX.json)
 EXIT_CODE=0
 
-DOCKER_IMAGE="semgrep/semgrep:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists semgrep; then
   semgrep "${SEMGREP_ARGS[@]}" . > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
-  docker run --rm -v "$(pwd):/src" -w /src \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  mount_flag=":ro"
+  $AUTOFIX && mount_flag=""
+  docker run --rm -v "$(pwd):/src${mount_flag}" -w /src \
     "$DOCKER_IMAGE" semgrep "${SEMGREP_ARGS[@]}" /src \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "Semgrep not available, skipping"
+  log_skip_tool "Semgrep"
   rm -f "$RAW_OUTPUT"
-  echo '[]' > "$FINDINGS_FILE"
   exit 0
 fi
 

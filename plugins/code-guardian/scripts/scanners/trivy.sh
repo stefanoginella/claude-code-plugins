@@ -43,12 +43,13 @@ case "$MODE" in
     ;;
 esac
 
-DOCKER_IMAGE="aquasec/trivy:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists trivy; then
   trivy "${TRIVY_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker_run_args=("--rm" "-v" "$(pwd):/workspace" "-w" "/workspace")
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  docker_run_args=("--rm" "-v" "$(pwd):/workspace:ro" "-w" "/workspace")
   # For image scanning, need Docker socket
   [[ "$MODE" == "image" ]] && docker_run_args+=("-v" "/var/run/docker.sock:/var/run/docker.sock")
   # Trivy cache
@@ -57,7 +58,7 @@ elif docker_available; then
   docker run "${docker_run_args[@]}" "$DOCKER_IMAGE" "${TRIVY_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "Trivy not available, skipping"
+  log_skip_tool "Trivy"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

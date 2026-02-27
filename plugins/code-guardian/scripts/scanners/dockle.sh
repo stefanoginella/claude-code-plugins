@@ -29,16 +29,17 @@ log_step "Running Dockle (container image lint: $TARGET)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-dockle-XXXXXX.json)
 EXIT_CODE=0
 
-DOCKER_IMAGE="goodwithtech/dockle:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists dockle; then
   dockle --format json "$TARGET" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available && docker image inspect "$TARGET" &>/dev/null; then
-  docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]] && docker image inspect "$TARGET" &>/dev/null; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  docker run --rm --network none -v /var/run/docker.sock:/var/run/docker.sock \
     "$DOCKER_IMAGE" --format json "$TARGET" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "Dockle not available, skipping"
+  log_skip_tool "Dockle"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

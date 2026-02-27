@@ -46,32 +46,40 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --write \
 Show a clear table of all needed tools:
 
 ```
-| Tool          | Category    | Status    | How Available        |
-|---------------|-------------|-----------|----------------------|
-| semgrep       | SAST        | Ready     | Local binary         |
-| gitleaks      | Secrets     | Ready     | Docker image         |
-| trivy         | Vuln scan   | MISSING   | —                    |
-| hadolint      | Container   | Ready     | Docker image         |
+| Tool          | Category    | Status                  | How Available          |
+|---------------|-------------|-------------------------|------------------------|
+| semgrep       | SAST        | Ready                   | Local binary           |
+| gitleaks      | Secrets     | Not installed           | Docker available       |
+| trivy         | Vuln scan   | MISSING                 | —                      |
+| hadolint      | Container   | Ready (Docker fallback) | Docker image (opted in)|
 ```
 
-### Step 5: Show Install Instructions for Missing Tools
+Status meanings:
+- **Ready** — installed locally, will run directly
+- **Ready (Docker fallback)** — not installed locally, but Docker fallback is enabled and image is available
+- **Not installed — Docker available** — Docker image exists but fallback is disabled; install locally or enable `dockerFallback`
+- **MISSING** — no local binary and no Docker image available
 
-If there are missing tools, list them with install commands for the current OS:
+### Step 5: Show Install Instructions for Missing/Unavailable Tools
+
+For tools not installed locally, lead with local install commands. Mention Docker fallback as secondary option:
 
 ```
-Missing tools — install any you want, then re-run this command to verify:
+Tools not installed locally:
+
+  gitleaks:
+    Install: brew install gitleaks
+    (Docker image available — enable dockerFallback to use)
 
   trivy:
-    brew install trivy
+    Install: brew install trivy
 
   checkov:
-    pip3 install checkov
-
-  pip-audit:
-    pip3 install pip-audit
+    Install: pip3 install checkov
+    (Docker image available — enable dockerFallback to use)
 ```
 
-End with: "Scans will use whatever tools are available and skip the rest. Install what you need and run `/code-guardian:code-guardian-setup` again to verify."
+End with: "Scans use locally installed tools by default. Install what you need and run `/code-guardian:code-guardian-setup` again to verify. To use Docker images as fallback, set `dockerFallback: true` in `.claude/code-guardian.config.json`."
 
 If ESLint security is in the tool list, note that it requires the `eslint-plugin-security` package to be installed in the project (`npm install -D eslint-plugin-security`). Without it, the scanner will skip even if ESLint itself is available.
 
@@ -104,6 +112,8 @@ Based on the answer, determine the config:
 - If the user selected a subset → set `tools` to that list
 - Also ask: "Any tools you want to permanently disable?" — list all available tools. Set `disabled` for any selected.
 
+Also ask: "Enable Docker fallback?" — explain that this allows Docker images to be used for tools not installed locally, with hardened security controls (pinned versions, read-only mounts, network isolation where possible). Default: No.
+
 Write the config file `.claude/code-guardian.config.json`:
 
 ```json
@@ -111,7 +121,8 @@ Write the config file `.claude/code-guardian.config.json`:
   "tools": ["semgrep", "gitleaks", "trivy"],
   "disabled": ["trufflehog", "dockle"],
   "scope": "codebase",
-  "autofix": false
+  "autofix": false,
+  "dockerFallback": false
 }
 ```
 
@@ -123,12 +134,13 @@ Tell the user: "Configuration saved to `.claude/code-guardian.config.json`. CLI 
 
 **Location**: `.claude/code-guardian.config.json`
 
-| Key        | Type     | Default        | Description                                           |
-|------------|----------|----------------|-------------------------------------------------------|
-| `tools`    | string[] | (all available) | Only run these tools. Omit to run all available.     |
-| `disabled` | string[] | (none)          | Never run these tools, even if available.            |
-| `scope`    | string   | `"codebase"`    | Default scan scope: codebase, uncommitted, unpushed. |
-| `autofix`  | boolean  | `false`         | Auto-fix findings by default.                        |
+| Key              | Type     | Default        | Description                                           |
+|------------------|----------|----------------|-------------------------------------------------------|
+| `tools`          | string[] | (all available) | Only run these tools. Omit to run all available.     |
+| `disabled`       | string[] | (none)          | Never run these tools, even if available.            |
+| `scope`          | string   | `"codebase"`    | Default scan scope: codebase, uncommitted, unpushed. |
+| `autofix`        | boolean  | `false`         | Auto-fix findings by default.                        |
+| `dockerFallback` | boolean  | `false`         | Allow Docker images as fallback when tools aren't installed locally. |
 
 **Precedence**: CLI `--tools` / `--scope` / `--autofix` always override config values.
 

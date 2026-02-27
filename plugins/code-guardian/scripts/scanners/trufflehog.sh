@@ -25,17 +25,18 @@ RAW_OUTPUT=$(mktemp /tmp/cg-trufflehog-XXXXXX.json)
 > "$RAW_OUTPUT"
 EXIT_CODE=0
 
-DOCKER_IMAGE="trufflesecurity/trufflehog:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists trufflehog; then
   trufflehog filesystem --json --no-update . \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker run --rm -v "$(pwd):/workspace" -w /workspace \
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  docker run --rm --network none -v "$(pwd):/workspace:ro" -w /workspace \
     "$DOCKER_IMAGE" filesystem --json --no-update /workspace \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
-  log_warn "TruffleHog not available, skipping"
+  log_skip_tool "TruffleHog"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi

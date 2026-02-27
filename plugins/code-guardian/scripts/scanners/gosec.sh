@@ -29,16 +29,20 @@ log_step "Running gosec (Go SAST)..."
 RAW_OUTPUT=$(mktemp /tmp/cg-gosec-XXXXXX.json)
 EXIT_CODE=0
 
-DOCKER_IMAGE="securego/gosec:latest"
+DOCKER_IMAGE="${CG_DOCKER_IMAGE:-}"
 
 if cmd_exists gosec; then
   gosec -fmt=json -out="$RAW_OUTPUT" ./... 2>/dev/null || EXIT_CODE=$?
-elif docker_available; then
-  docker run --rm -v "$(pwd):/workspace" -w /workspace \
-    "$DOCKER_IMAGE" -fmt=json -out=/workspace/.gosec-output.json ./... 2>/dev/null || EXIT_CODE=$?
-  [[ -f .gosec-output.json ]] && mv .gosec-output.json "$RAW_OUTPUT"
+elif docker_fallback_enabled && docker_available && [[ -n "$DOCKER_IMAGE" ]]; then
+  log_info "Using Docker image: $DOCKER_IMAGE"
+  REPORT_DIR=$(mktemp -d /tmp/cg-gosec-report-XXXXXX)
+  docker run --rm --network none \
+    -v "$(pwd):/workspace:ro" -v "$REPORT_DIR:/report" -w /workspace \
+    "$DOCKER_IMAGE" -fmt=json -out=/report/gosec-output.json ./... 2>/dev/null || EXIT_CODE=$?
+  [[ -f "$REPORT_DIR/gosec-output.json" ]] && mv "$REPORT_DIR/gosec-output.json" "$RAW_OUTPUT"
+  rm -rf "$REPORT_DIR"
 else
-  log_warn "gosec not available, skipping"
+  log_skip_tool "gosec"
   rm -f "$RAW_OUTPUT"
   exit 0
 fi
