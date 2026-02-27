@@ -12,6 +12,13 @@ I'm a freelance developer exploring what AI-assisted development can actually lo
 - **Automation over discipline.** If a step can be encoded, it shouldn't depend on you remembering it. The plugin remembers so you don't have to.
 - **Solo doesn't mean sloppy.** One person can ship with the rigor of a team when the tooling does the heavy lifting.
 
+## 🔌 Available Plugins
+
+| Plugin | Description |
+|--------|-------------|
+| [auto-bmad](./plugins/auto-bmad/README.md) | Automated and opinionated BMAD pipeline orchestration |
+| [code-guardian](./plugins/code-guardian/README.md) | ⚠️ EXPERIMENTAL: Deterministic security scanning layer |
+
 ## 📦 Installation
 
 Add the marketplace from the **Marketplace** tab of `/plugin` or directly:
@@ -20,18 +27,8 @@ Add the marketplace from the **Marketplace** tab of `/plugin` or directly:
 /plugin marketplace add stefanoginella/claude-code-plugins
 ```
 
-Then install individual plugins from the **Discover** tab of `/plugin` or directly:
+Then install individual plugins from the **Discover** tab of `/plugin` or directly.
 
-```
-/plugin install auto-bmad@claude-code-plugins
-```
-
-## 🔌 Available Plugins
-
-| Plugin | Description |
-|--------|-------------|
-| [auto-bmad](./plugins/auto-bmad/README.md) | Automated and opinionated BMAD pipeline orchestration |
-| [code-guardian](./plugins/code-guardian/README.md) | ⚠️ EXPERIMENTAL: Deterministic security scanning layer |
 
 ## 🤝 Contributing
 
