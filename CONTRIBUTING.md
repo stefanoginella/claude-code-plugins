@@ -58,12 +58,14 @@ packages/
 scripts/
   prepublish.sh               — Syncs versions + copies README/LICENSE before npm publish
   sync-versions.sh            — Syncs plugin.json version → package.json
+  update-tool-versions.sh     — Checks GitHub for new security tool releases, updates pins
 
 .githooks/
   pre-commit                  — Auto-syncs package.json versions on commit
 
 .github/workflows/
   publish.yml                 — CI: auto-publish to npm on plugin.json version bump
+  update-tool-versions.yml    — Weekly check for new security tool releases, opens PR
 ```
 
 ### Key Files
