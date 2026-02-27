@@ -66,15 +66,20 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+          # Stash the version updates so we can switch branches cleanly
+          git stash --include-untracked
+
           # Check if branch already exists remotely
           if git ls-remote --exit-code origin "refs/heads/${branch}" >/dev/null 2>&1; then
             git fetch origin "${branch}"
             git checkout "${branch}"
-            git merge origin/main --no-edit
+            git reset --hard origin/main
           else
             git checkout -b "${branch}"
           fi
 
+          # Apply the version updates onto the branch
+          git stash pop
           git add plugins/code-guardian/scripts/lib/tool-registry.sh plugins/code-guardian/scripts/ci-recommend.sh
           git commit -m "chore: update pinned tool versions" \
             -m "Automated weekly check for new releases of security tools."
