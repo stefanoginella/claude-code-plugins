@@ -21,8 +21,8 @@ FINDINGS_FILE="${OUTPUT_DIR}/checkov-findings.jsonl"
 
 # Check if there are IaC files to scan
 has_iac=false
-find . -maxdepth 4 \( -name "*.tf" -o -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) 2>/dev/null | \
-  xargs grep -l 'resource\|AWSTemplateFormatVersion\|apiVersion:' 2>/dev/null | head -1 &>/dev/null && has_iac=true
+find . -maxdepth 4 \( -name "*.tf" -o -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -print0 2>/dev/null | \
+  xargs -0 grep -lq 'resource\|AWSTemplateFormatVersion\|apiVersion:' 2>/dev/null && has_iac=true
 
 if ! $has_iac; then
   log_info "No IaC files detected, skipping Checkov"
@@ -38,22 +38,24 @@ CHECKOV_ARGS=("-d" "." "--output" "json" "--quiet" "--compact")
 
 DOCKER_IMAGE="bridgecrew/checkov:latest"
 
-CONTAINER_SVC=$(get_container_service_for_tool "checkov" 2>/dev/null || true)
-
-if [[ -n "$CONTAINER_SVC" ]]; then
-  log_info "Running in project container ($CONTAINER_SVC)"
-  $(get_compose_cmd) exec -T "$CONTAINER_SVC" checkov "${CHECKOV_ARGS[@]}" \
-    > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
+if cmd_exists checkov; then
+  checkov "${CHECKOV_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 elif docker_available; then
   docker run --rm -v "$(pwd):/tf" -w /tf \
     "$DOCKER_IMAGE" "${CHECKOV_ARGS[@]}" \
     > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
-elif cmd_exists checkov; then
-  checkov "${CHECKOV_ARGS[@]}" > "$RAW_OUTPUT" 2>/dev/null || EXIT_CODE=$?
 else
   log_warn "Checkov not available, skipping"
   rm -f "$RAW_OUTPUT"
   exit 0
+fi
+
+# Detect tool failure: non-zero exit with no usable output
+if [[ $EXIT_CODE -ne 0 ]] && { [[ ! -f "$RAW_OUTPUT" ]] || [[ ! -s "$RAW_OUTPUT" ]]; }; then
+  log_error "Checkov failed (exit code $EXIT_CODE)"
+  rm -f "$RAW_OUTPUT"
+  echo "$FINDINGS_FILE"
+  exit 2
 fi
 
 if [[ -f "$RAW_OUTPUT" ]] && [[ -s "$RAW_OUTPUT" ]]; then

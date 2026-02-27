@@ -11,15 +11,15 @@ code-guardian is a deterministic security scanning plugin for Claude Code. It de
 
 ### Commands
 - `/code-guardian:code-guardian-scan` — Main security scan (interactive or yolo mode)
-- `/code-guardian:code-guardian-setup` — Check and install required tools
+- `/code-guardian:code-guardian-setup` — Check tool availability and show install instructions
 - `/code-guardian:code-guardian-ci` — Generate CI security pipeline config
 
 ### How It Works
 1. `detect-stack.sh` identifies languages, frameworks, Docker, CI, IaC
-2. `check-tools.sh` verifies tool availability (Docker-first, local fallback)
+2. `check-tools.sh` verifies tool availability (local binary first, Docker image fallback)
 3. `scan.sh` orchestrates running relevant scanners
 4. Each scanner outputs unified JSONL findings
-5. Claude (or security-fixer agent) applies fixes
+5. The `security-fixer` agent applies code-level fixes for findings that tools can't auto-fix
 
 ## Tool Reference
 

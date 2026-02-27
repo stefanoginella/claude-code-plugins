@@ -24,15 +24,20 @@ if [[ -z "$STACK_JSON" ]] || ! [[ -f "$STACK_JSON" ]]; then
 fi
 
 # Parse stack
-stack_data=$(cat "$STACK_JSON")
 parse_json_array() {
   echo "$1" | tr -d '[]"' | tr ',' '\n' | tr -d ' ' | grep -v '^$'
 }
 
-languages=$(echo "$stack_data" | grep '"languages"' | sed 's/.*: *//;s/,$//')
-has_docker=$(echo "$stack_data" | grep '"docker"' | sed 's/.*: *//;s/,$//' | tr -d ' ')
-ci_systems=$(echo "$stack_data" | grep '"ciSystems"' | sed 's/.*: *//;s/,$//')
-iac_tools=$(echo "$stack_data" | grep '"iacTools"' | sed 's/.*: *//;s/,$//')
+# Read each field on its own line to avoid whitespace-splitting JSON arrays
+_stack_fields=$(python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(json.dumps(d.get('languages', [])))
+print(str(d.get('docker', False)).lower())
+print(json.dumps(d.get('ciSystems', [])))
+print(json.dumps(d.get('iacTools', [])))
+" "$STACK_JSON" 2>/dev/null || printf '[]\nfalse\n[]\n[]\n')
+{ IFS= read -r languages; IFS= read -r has_docker; IFS= read -r ci_systems; IFS= read -r iac_tools; } <<< "$_stack_fields"
 
 # Auto-detect CI if not specified
 if [[ -z "$CI_SYSTEM" ]]; then
@@ -99,17 +104,17 @@ jobs:
   security-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       # Secret detection
       - name: Gitleaks (secret detection)
-        uses: gitleaks/gitleaks-action@v2
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Multi-language SAST
       - name: Semgrep (SAST)
-        uses: semgrep/semgrep-action@v1
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: auto
 
@@ -122,7 +127,7 @@ GHEOF
           cat <<'TRIVYEOF'
       # Vulnerability scanning
       - name: Trivy (vulnerability scan)
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@e368e328979b113139d6f9068e03accaed98a518 # 0.34.1
         with:
           scan-type: 'fs'
           scan-ref: '.'
@@ -130,7 +135,7 @@ GHEOF
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
       - name: Upload Trivy results
-        uses: github/codeql-action/upload-sarif@v3
+        uses: github/codeql-action/upload-sarif@45580472a5bb82c4681c4ac726cfdb60060c2ee1 # v3
         if: always()
         with:
           sarif_file: 'trivy-results.sarif'
@@ -141,7 +146,7 @@ TRIVYEOF
           cat <<'HADOEOF'
       # Dockerfile linting
       - name: Hadolint (Dockerfile lint)
-        uses: hadolint/hadolint-action@v3.1.0
+        uses: hadolint/hadolint-action@54c9adbab1582c2ef04b2016b760714a4bfde3cf # v3.1.0
         with:
           dockerfile: Dockerfile
 
@@ -151,7 +156,7 @@ HADOEOF
           cat <<'CHECKOVEOF'
       # IaC scanning
       - name: Checkov (IaC security)
-        uses: bridgecrewio/checkov-action@master
+        uses: bridgecrewio/checkov-action@f99709f8ccc3496220c987b7d8729653237c23dc # v12
         with:
           directory: .
           quiet: true
@@ -194,7 +199,7 @@ BANDITEOF
           cat <<'GOSECEOF'
       # Go SAST
       - name: gosec (Go SAST)
-        uses: securego/gosec@master
+        uses: securego/gosec@271492bcd930ef72dfb9d00e5bb9544b3b407fb5 # v2.24.0
         with:
           args: ./...
 
@@ -204,10 +209,9 @@ GOSECEOF
           cat <<'OSVEOF'
       # Universal dependency audit
       - name: OSV-Scanner (dependency vulnerabilities)
-        run: |
-          curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 -o /usr/local/bin/osv-scanner
-          chmod +x /usr/local/bin/osv-scanner
-          osv-scanner -r .
+        uses: google/osv-scanner-action/osv-scanner@c5996e0193a3df57d695c1b8a1dec2a4c62e8730 # v2.3.3
+        with:
+          scan-args: -r .
         continue-on-error: true
 
 OSVEOF
@@ -216,7 +220,7 @@ OSVEOF
           cat <<'THEOF'
       # Deep secret detection
       - name: TruffleHog (secret detection)
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@041f07e9df901a1038a528e5525b0226d04dd5ea # v3.93.6
         with:
           extra_args: --only-verified
 
@@ -253,7 +257,7 @@ variables:
 
 gitleaks:
   stage: security
-  image: zricethezav/gitleaks:latest
+  image: zricethezav/gitleaks:v8.24.0
   script:
     - gitleaks detect --source . --report-format json --report-path gitleaks-report.json --no-banner
   artifacts:
@@ -264,7 +268,7 @@ gitleaks:
 
 semgrep:
   stage: security
-  image: semgrep/semgrep:latest
+  image: semgrep/semgrep:1.113.0
   script:
     - semgrep --config auto --json --output semgrep-results.json .
   artifacts:
@@ -281,7 +285,7 @@ GLEOF
           cat <<'GLTRIVYEOF'
 trivy:
   stage: security
-  image: aquasec/trivy:latest
+  image: aquasec/trivy:0.58.2
   script:
     - trivy fs --format json --output trivy-results.json --severity CRITICAL,HIGH .
   artifacts:
@@ -296,7 +300,7 @@ GLTRIVYEOF
           cat <<'GLCHECKOVEOF'
 checkov:
   stage: security
-  image: bridgecrew/checkov:latest
+  image: bridgecrew/checkov:3.2.334
   script:
     - checkov -d . --output json --quiet > checkov-results.json || true
   artifacts:
@@ -311,7 +315,7 @@ GLCHECKOVEOF
           cat <<'GLOSVEOF'
 osv-scanner:
   stage: security
-  image: ghcr.io/google/osv-scanner:latest
+  image: ghcr.io/google/osv-scanner:v2.3.3
   script:
     - osv-scanner --format json -r . > osv-results.json || true
   artifacts:
@@ -326,7 +330,7 @@ GLOSVEOF
           cat <<'GLTHEOF'
 trufflehog:
   stage: security
-  image: trufflesecurity/trufflehog:latest
+  image: trufflesecurity/trufflehog:3.93.6
   script:
     - trufflehog filesystem --json --no-update . > trufflehog-results.json || true
   artifacts:
@@ -341,7 +345,7 @@ GLTHEOF
           cat <<'GLPHPSTANEOF'
 phpstan:
   stage: security
-  image: ghcr.io/phpstan/phpstan:latest
+  image: ghcr.io/phpstan/phpstan:2.1
   script:
     - phpstan analyse --error-format=json --no-progress --level=5 . > phpstan-results.json || true
   artifacts:

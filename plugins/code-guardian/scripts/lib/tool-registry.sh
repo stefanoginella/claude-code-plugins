@@ -9,31 +9,31 @@ source "${SCRIPT_DIR}/common.sh"
 # Format: TOOL_<name>_DOCKER, TOOL_<name>_INSTALL_<os>, TOOL_<name>_CATEGORY
 
 # Semgrep — multi-language SAST
-TOOL_SEMGREP_DOCKER="semgrep/semgrep:latest"
+TOOL_SEMGREP_DOCKER="semgrep/semgrep:1.113.0"
 TOOL_SEMGREP_INSTALL_MACOS="pip3 install semgrep"
 TOOL_SEMGREP_INSTALL_LINUX="pip3 install semgrep"
 TOOL_SEMGREP_CATEGORY="sast"
 
 # Trivy — vulnerability scanner (containers, fs, IaC)
-TOOL_TRIVY_DOCKER="aquasec/trivy:latest"
+TOOL_TRIVY_DOCKER="aquasec/trivy:0.58.2"
 TOOL_TRIVY_INSTALL_MACOS="brew install trivy"
-TOOL_TRIVY_INSTALL_LINUX="curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh | sh -s -- -b /usr/local/bin"
+TOOL_TRIVY_INSTALL_LINUX="curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/v0.58.2/contrib/install.sh | sh -s -- -b /usr/local/bin v0.58.2"
 TOOL_TRIVY_CATEGORY="vulnerability"
 
 # Gitleaks — secret detection
-TOOL_GITLEAKS_DOCKER="zricethezav/gitleaks:latest"
+TOOL_GITLEAKS_DOCKER="zricethezav/gitleaks:v8.24.0"
 TOOL_GITLEAKS_INSTALL_MACOS="brew install gitleaks"
-TOOL_GITLEAKS_INSTALL_LINUX="curl -sSfL https://github.com/gitleaks/gitleaks/releases/latest/download/gitleaks-linux-amd64 -o /usr/local/bin/gitleaks && chmod +x /usr/local/bin/gitleaks"
+TOOL_GITLEAKS_INSTALL_LINUX="curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.24.0/gitleaks_8.24.0_linux_x64.tar.gz | tar xz -C /usr/local/bin gitleaks"
 TOOL_GITLEAKS_CATEGORY="secrets"
 
 # Hadolint — Dockerfile linter
-TOOL_HADOLINT_DOCKER="hadolint/hadolint:latest"
+TOOL_HADOLINT_DOCKER="hadolint/hadolint:v2.12.0"
 TOOL_HADOLINT_INSTALL_MACOS="brew install hadolint"
-TOOL_HADOLINT_INSTALL_LINUX="curl -sSfL https://github.com/hadolint/hadolint/releases/latest/download/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint"
+TOOL_HADOLINT_INSTALL_LINUX="curl -sSfL https://github.com/hadolint/hadolint/releases/download/v2.12.0/hadolint-Linux-x86_64 -o /usr/local/bin/hadolint && chmod +x /usr/local/bin/hadolint"
 TOOL_HADOLINT_CATEGORY="container"
 
 # Checkov — IaC scanner
-TOOL_CHECKOV_DOCKER="bridgecrew/checkov:latest"
+TOOL_CHECKOV_DOCKER="bridgecrew/checkov:3.2.334"
 TOOL_CHECKOV_INSTALL_MACOS="pip3 install checkov"
 TOOL_CHECKOV_INSTALL_LINUX="pip3 install checkov"
 TOOL_CHECKOV_CATEGORY="iac"
@@ -50,16 +50,16 @@ TOOL_PIP_AUDIT_INSTALL_MACOS="pip3 install pip-audit"
 TOOL_PIP_AUDIT_INSTALL_LINUX="pip3 install pip-audit"
 TOOL_PIP_AUDIT_CATEGORY="dependency"
 
-# Bandit — Python SAST
-TOOL_BANDIT_DOCKER=""
+# Bandit — Python SAST (uses python:3-slim with inline pip install as Docker fallback)
+TOOL_BANDIT_DOCKER="python:3-slim"
 TOOL_BANDIT_INSTALL_MACOS="pip3 install bandit"
 TOOL_BANDIT_INSTALL_LINUX="pip3 install bandit"
 TOOL_BANDIT_CATEGORY="sast"
 
 # gosec — Go SAST
-TOOL_GOSEC_DOCKER="securego/gosec:latest"
+TOOL_GOSEC_DOCKER="securego/gosec:v2.24.0"
 TOOL_GOSEC_INSTALL_MACOS="brew install gosec"
-TOOL_GOSEC_INSTALL_LINUX="curl -sfL https://raw.githubusercontent.com/securego/gosec/master/install.sh | sh -s -- -b /usr/local/bin"
+TOOL_GOSEC_INSTALL_LINUX="curl -sfL https://raw.githubusercontent.com/securego/gosec/v2.24.0/install.sh | sh -s -- -b /usr/local/bin v2.24.0"
 TOOL_GOSEC_CATEGORY="sast"
 
 # govulncheck — Go vulnerability checker
@@ -81,7 +81,7 @@ TOOL_BUNDLER_AUDIT_INSTALL_LINUX="gem install bundler-audit"
 TOOL_BUNDLER_AUDIT_CATEGORY="dependency"
 
 # Brakeman — Ruby/Rails SAST
-TOOL_BRAKEMAN_DOCKER="presidentbeef/brakeman:latest"
+TOOL_BRAKEMAN_DOCKER="presidentbeef/brakeman:v6.2.2"
 TOOL_BRAKEMAN_INSTALL_MACOS="gem install brakeman"
 TOOL_BRAKEMAN_INSTALL_LINUX="gem install brakeman"
 TOOL_BRAKEMAN_CATEGORY="sast"
@@ -93,25 +93,25 @@ TOOL_ESLINT_SECURITY_INSTALL_LINUX="npm install -g eslint eslint-plugin-security
 TOOL_ESLINT_SECURITY_CATEGORY="sast"
 
 # Dockle — container image linter
-TOOL_DOCKLE_DOCKER="goodwithtech/dockle:latest"
+TOOL_DOCKLE_DOCKER="goodwithtech/dockle:v0.4.14"
 TOOL_DOCKLE_INSTALL_MACOS="brew install goodwithtech/r/dockle"
-TOOL_DOCKLE_INSTALL_LINUX="curl -sSfL https://github.com/goodwithtech/dockle/releases/latest/download/dockle_Linux-64bit.tar.gz | tar xz -C /usr/local/bin"
+TOOL_DOCKLE_INSTALL_LINUX="curl -sSfL https://github.com/goodwithtech/dockle/releases/download/v0.4.14/dockle_0.4.14_Linux-64bit.tar.gz | tar xz -C /usr/local/bin dockle"
 TOOL_DOCKLE_CATEGORY="container"
 
 # TruffleHog — secret detection (OSS)
-TOOL_TRUFFLEHOG_DOCKER="trufflesecurity/trufflehog:latest"
+TOOL_TRUFFLEHOG_DOCKER="trufflesecurity/trufflehog:3.93.6"
 TOOL_TRUFFLEHOG_INSTALL_MACOS="brew install trufflehog"
-TOOL_TRUFFLEHOG_INSTALL_LINUX="curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin"
+TOOL_TRUFFLEHOG_INSTALL_LINUX="curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/v3.93.6/scripts/install.sh | sh -s -- -b /usr/local/bin"
 TOOL_TRUFFLEHOG_CATEGORY="secrets"
 
 # OSV-Scanner — universal dependency vulnerability scanner
-TOOL_OSV_SCANNER_DOCKER="ghcr.io/google/osv-scanner:latest"
+TOOL_OSV_SCANNER_DOCKER="ghcr.io/google/osv-scanner:v2.3.3"
 TOOL_OSV_SCANNER_INSTALL_MACOS="brew install osv-scanner"
-TOOL_OSV_SCANNER_INSTALL_LINUX="curl -sSfL https://github.com/google/osv-scanner/releases/latest/download/osv-scanner_linux_amd64 -o /usr/local/bin/osv-scanner && chmod +x /usr/local/bin/osv-scanner"
+TOOL_OSV_SCANNER_INSTALL_LINUX="curl -sSfL https://github.com/google/osv-scanner/releases/download/v2.3.3/osv-scanner_linux_amd64 -o /usr/local/bin/osv-scanner && chmod +x /usr/local/bin/osv-scanner"
 TOOL_OSV_SCANNER_CATEGORY="dependency"
 
 # PHPStan — PHP static analysis
-TOOL_PHPSTAN_DOCKER="ghcr.io/phpstan/phpstan:latest"
+TOOL_PHPSTAN_DOCKER="ghcr.io/phpstan/phpstan:2.1"
 TOOL_PHPSTAN_INSTALL_MACOS="composer global require phpstan/phpstan"
 TOOL_PHPSTAN_INSTALL_LINUX="composer global require phpstan/phpstan"
 TOOL_PHPSTAN_CATEGORY="sast"
@@ -147,7 +147,7 @@ get_tools_for_stack() {
       echo "semgrep gitleaks trufflehog osv-scanner"
       ;;
     docker)
-      echo "trivy hadolint dockle"
+      echo "trivy hadolint"
       ;;
     terraform|cloudformation|kubernetes|iac)
       echo "checkov trivy"
@@ -201,32 +201,23 @@ get_tool_category() {
   echo "${!var_name:-unknown}"
 }
 
-# Check if a tool is available (project container, Docker image, or local)
-# Returns: "container:<service>", "docker", "local", or "unavailable"
-# NOTE: call detect_container_tools() before this for container detection to work
+# Check if a tool is available (local binary or Docker image)
+# Returns: "local", "docker", or "unavailable"
 check_tool_availability() {
   local tool="$1"
   local binary docker_image
   binary=$(get_tool_binary "$tool")
   docker_image=$(get_tool_docker_image "$tool")
 
-  # 1. Check running project containers
-  local container_service
-  container_service=$(get_container_service_for_tool "$binary" 2>/dev/null || true)
-  if [[ -n "$container_service" ]]; then
-    echo "container:${container_service}"
-    return
-  fi
-
-  # 2. Standalone Docker image
-  if [[ -n "$docker_image" ]] && docker_available; then
-    echo "docker"
-    return
-  fi
-
-  # 3. Local binary
+  # 1. Local binary (fastest, explicitly installed)
   if cmd_exists "$binary"; then
     echo "local"
+    return
+  fi
+
+  # 2. Docker image (reliable fallback)
+  if [[ -n "$docker_image" ]] && docker_available; then
+    echo "docker"
     return
   fi
 

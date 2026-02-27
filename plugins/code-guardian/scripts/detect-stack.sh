@@ -17,95 +17,115 @@ ci_systems=()
 package_managers=()
 iac_tools=()
 
+# Exclude dirs that should never be scanned
+_PRUNE=(-path './.git' -o -path './node_modules' -o -path './vendor' -o -path './.venv' -o -path './venv' -o -path './__pycache__')
+
+# Helper: check if a file name exists anywhere within maxdepth (default 3)
+file_exists_any() {
+  local name="$1" depth="${2:-3}"
+  find . -maxdepth "$depth" \( "${_PRUNE[@]}" \) -prune -o -name "$name" -print -quit 2>/dev/null | grep -q .
+}
+
+# Helper: check if any file matching an extension exists within maxdepth
+ext_exists() {
+  local ext="$1" depth="${2:-3}"
+  find . -maxdepth "$depth" \( "${_PRUNE[@]}" \) -prune -o -name "*.$ext" -print -quit 2>/dev/null | grep -q .
+}
+
+# Helper: grep across all matching files found by find
+grep_in_files() {
+  local pattern="$1" name_glob="$2" depth="${3:-3}"
+  find . -maxdepth "$depth" \( "${_PRUNE[@]}" \) -prune -o -name "$name_glob" -print0 2>/dev/null | \
+    xargs -0 grep -lq "$pattern" 2>/dev/null
+}
+
 # ── Language detection ────────────────────────────────────────────────
 
 # JavaScript / TypeScript
-if ls ./*.js ./*.ts ./*.jsx ./*.tsx src/**/*.js src/**/*.ts 2>/dev/null | head -1 &>/dev/null || \
-   [[ -f package.json ]]; then
-  if [[ -f tsconfig.json ]] || [[ -f tsconfig.*.json ]] 2>/dev/null; then
+if ext_exists js || ext_exists ts || ext_exists jsx || ext_exists tsx || file_exists_any package.json; then
+  if file_exists_any tsconfig.json; then
     languages+=("typescript")
   fi
   languages+=("javascript")
   # Package managers
-  [[ -f package-lock.json ]] && package_managers+=("npm")
-  [[ -f yarn.lock ]] && package_managers+=("yarn")
-  [[ -f pnpm-lock.yaml ]] && package_managers+=("pnpm")
-  [[ -f bun.lockb ]] || [[ -f bun.lock ]] && package_managers+=("bun")
-  # Frameworks
-  if [[ -f package.json ]]; then
-    grep -q '"next"' package.json 2>/dev/null && frameworks+=("nextjs")
-    grep -q '"react"' package.json 2>/dev/null && frameworks+=("react")
-    grep -q '"vue"' package.json 2>/dev/null && frameworks+=("vue")
-    grep -q '"angular"' package.json 2>/dev/null && frameworks+=("angular")
-    grep -q '"express"' package.json 2>/dev/null && frameworks+=("express")
-    grep -q '"fastify"' package.json 2>/dev/null && frameworks+=("fastify")
-    grep -q '"svelte"' package.json 2>/dev/null && frameworks+=("svelte")
-    grep -q '"nuxt"' package.json 2>/dev/null && frameworks+=("nuxt")
-    grep -q '"astro"' package.json 2>/dev/null && frameworks+=("astro")
-  fi
+  file_exists_any package-lock.json && package_managers+=("npm")
+  file_exists_any yarn.lock && package_managers+=("yarn")
+  file_exists_any pnpm-lock.yaml && package_managers+=("pnpm")
+  { file_exists_any bun.lockb || file_exists_any bun.lock; } && package_managers+=("bun")
+  # Frameworks (search all package.json files found in tree)
+  grep_in_files '"next"' package.json && frameworks+=("nextjs")
+  grep_in_files '"react"' package.json && frameworks+=("react")
+  grep_in_files '"vue"' package.json && frameworks+=("vue")
+  grep_in_files '"angular"' package.json && frameworks+=("angular")
+  grep_in_files '"express"' package.json && frameworks+=("express")
+  grep_in_files '"fastify"' package.json && frameworks+=("fastify")
+  grep_in_files '"svelte"' package.json && frameworks+=("svelte")
+  grep_in_files '"nuxt"' package.json && frameworks+=("nuxt")
+  grep_in_files '"astro"' package.json && frameworks+=("astro")
 fi
 
 # Python
-if ls ./*.py 2>/dev/null | head -1 &>/dev/null || \
-   [[ -f requirements.txt ]] || [[ -f pyproject.toml ]] || [[ -f setup.py ]] || [[ -f Pipfile ]]; then
+if ext_exists py || file_exists_any requirements.txt || file_exists_any pyproject.toml || \
+   file_exists_any setup.py || file_exists_any Pipfile || file_exists_any uv.lock; then
   languages+=("python")
-  [[ -f requirements.txt ]] && package_managers+=("pip")
-  [[ -f Pipfile ]] && package_managers+=("pipenv")
-  [[ -f poetry.lock ]] && package_managers+=("poetry")
-  [[ -f pyproject.toml ]] && grep -q 'build-backend.*hatchling\|build-backend.*flit\|build-backend.*setuptools' pyproject.toml 2>/dev/null && package_managers+=("pyproject")
+  file_exists_any requirements.txt && package_managers+=("pip")
+  file_exists_any Pipfile && package_managers+=("pipenv")
+  file_exists_any poetry.lock && package_managers+=("poetry")
+  file_exists_any uv.lock && package_managers+=("uv")
   # Frameworks
-  grep -rql 'from django\|import django' . --include="*.py" 2>/dev/null | head -1 &>/dev/null && frameworks+=("django")
-  grep -rql 'from flask\|import flask' . --include="*.py" 2>/dev/null | head -1 &>/dev/null && frameworks+=("flask")
-  grep -rql 'from fastapi\|import fastapi' . --include="*.py" 2>/dev/null | head -1 &>/dev/null && frameworks+=("fastapi")
+  grep_in_files 'from django\|import django' "*.py" && frameworks+=("django")
+  grep_in_files 'from flask\|import flask' "*.py" && frameworks+=("flask")
+  grep_in_files 'from fastapi\|import fastapi' "*.py" && frameworks+=("fastapi")
 fi
 
 # Go
-if [[ -f go.mod ]] || ls ./*.go 2>/dev/null | head -1 &>/dev/null; then
+if file_exists_any go.mod || ext_exists go; then
   languages+=("go")
   package_managers+=("go-modules")
 fi
 
 # Rust
-if [[ -f Cargo.toml ]] || [[ -f Cargo.lock ]]; then
+if file_exists_any Cargo.toml || file_exists_any Cargo.lock; then
   languages+=("rust")
   package_managers+=("cargo")
 fi
 
 # Ruby
-if [[ -f Gemfile ]] || [[ -f Rakefile ]] || ls ./*.rb 2>/dev/null | head -1 &>/dev/null; then
+if file_exists_any Gemfile || file_exists_any Rakefile || ext_exists rb; then
   languages+=("ruby")
   package_managers+=("bundler")
-  [[ -f config/routes.rb ]] && frameworks+=("rails")
+  file_exists_any routes.rb && frameworks+=("rails")
 fi
 
 # Java / Kotlin
-if [[ -f pom.xml ]] || [[ -f build.gradle ]] || [[ -f build.gradle.kts ]]; then
-  if [[ -f build.gradle.kts ]] || find . -name "*.kt" -maxdepth 3 2>/dev/null | head -1 &>/dev/null; then
+if file_exists_any pom.xml || file_exists_any build.gradle || file_exists_any "build.gradle.kts"; then
+  if file_exists_any "build.gradle.kts" || ext_exists kt; then
     languages+=("kotlin")
   fi
   languages+=("java")
-  [[ -f pom.xml ]] && package_managers+=("maven")
-  [[ -f build.gradle ]] || [[ -f build.gradle.kts ]] && package_managers+=("gradle")
+  file_exists_any pom.xml && package_managers+=("maven")
+  { file_exists_any build.gradle || file_exists_any "build.gradle.kts"; } && package_managers+=("gradle")
 fi
 
 # PHP
-if [[ -f composer.json ]] || ls ./*.php 2>/dev/null | head -1 &>/dev/null; then
+if file_exists_any composer.json || ext_exists php; then
   languages+=("php")
   package_managers+=("composer")
-  grep -q '"laravel/framework"' composer.json 2>/dev/null && frameworks+=("laravel")
+  grep_in_files '"laravel/framework"' composer.json && frameworks+=("laravel")
 fi
 
 # C# / .NET
-if ls ./*.csproj ./*.sln 2>/dev/null | head -1 &>/dev/null || [[ -f global.json ]]; then
+if ext_exists csproj || ext_exists sln || file_exists_any global.json; then
   languages+=("csharp")
   package_managers+=("nuget")
 fi
 
 # ── Docker detection ──────────────────────────────────────────────────
-if [[ -f Dockerfile ]] || ls Dockerfile.* ./*.dockerfile 2>/dev/null | head -1 &>/dev/null; then
+if file_exists_any Dockerfile || ext_exists dockerfile; then
   has_docker=true
 fi
-if [[ -f docker-compose.yml ]] || [[ -f docker-compose.yaml ]] || [[ -f compose.yml ]] || [[ -f compose.yaml ]]; then
+if file_exists_any docker-compose.yml || file_exists_any docker-compose.yaml || \
+   file_exists_any compose.yml || file_exists_any compose.yaml; then
   has_docker_compose=true
 fi
 
@@ -125,8 +145,8 @@ if find . -maxdepth 3 -name "*.tf" 2>/dev/null | grep -q .; then
   iac_tools+=("terraform")
 fi
 # CloudFormation: look for AWSTemplateFormatVersion in YAML/JSON
-if find . -maxdepth 3 \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -not -path './.git/*' 2>/dev/null | \
-   xargs grep -l "AWSTemplateFormatVersion" 2>/dev/null | grep -q .; then
+if find . -maxdepth 3 \( -name "*.yaml" -o -name "*.yml" -o -name "*.json" \) -not -path './.git/*' -print0 2>/dev/null | \
+   xargs -0 grep -lq "AWSTemplateFormatVersion" 2>/dev/null; then
   iac_tools+=("cloudformation")
 fi
 # Helm: look for Chart.yaml specifically
@@ -134,8 +154,8 @@ if find . -maxdepth 3 -name "Chart.yaml" 2>/dev/null | grep -q .; then
   iac_tools+=("helm")
 fi
 # Kubernetes: look for k8s manifests (apiVersion + kind in same file, not in node_modules or .github)
-if find . -maxdepth 3 \( -name "*.yaml" -o -name "*.yml" \) -not -path './.git/*' -not -path './node_modules/*' -not -path './.github/*' 2>/dev/null | \
-   xargs grep -l "^apiVersion:" 2>/dev/null | xargs grep -l "^kind:" 2>/dev/null | grep -q .; then
+if find . -maxdepth 3 \( -name "*.yaml" -o -name "*.yml" \) -not -path './.git/*' -not -path './node_modules/*' -not -path './.github/*' -print0 2>/dev/null | \
+   xargs -0 grep -lZ "^apiVersion:" 2>/dev/null | xargs -0 grep -lq "^kind:" 2>/dev/null; then
   iac_tools+=("kubernetes")
 fi
 

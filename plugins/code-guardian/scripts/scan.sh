@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Main scan orchestrator — runs relevant scanners based on detected stack
-# Usage: scan.sh --stack-json <file> --scope <scope> [--base-ref <ref>] [--autofix] [--tools-json <file>]
+# Usage: scan.sh --stack-json <file> --scope <scope> [--base-ref <ref>] [--autofix] [--tools-json <file>] [--tools tool1,tool2,...] [--disabled tool1,tool2,...]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -12,7 +12,25 @@ TOOLS_JSON=""
 SCOPE="codebase"
 BASE_REF=""
 AUTOFIX=false
+ONLY_TOOLS=""
+DISABLED_TOOLS=""
 
+# Load config defaults (CLI args override these)
+_cfg_read() { bash "${SCRIPT_DIR}/read-config.sh" --get "$1" 2>/dev/null || true; }
+
+_cfg_scope=$(_cfg_read scope)
+[[ -n "$_cfg_scope" ]] && SCOPE="$_cfg_scope"
+
+_cfg_autofix=$(_cfg_read autofix)
+[[ "$_cfg_autofix" == "true" ]] && AUTOFIX=true
+
+_cfg_tools=$(_cfg_read tools)
+[[ -n "$_cfg_tools" ]] && ONLY_TOOLS="$_cfg_tools"
+
+_cfg_disabled=$(_cfg_read disabled)
+[[ -n "$_cfg_disabled" ]] && DISABLED_TOOLS="$_cfg_disabled"
+
+# CLI args override config
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --stack-json) STACK_JSON="$2"; shift 2 ;;
@@ -20,9 +38,22 @@ while [[ $# -gt 0 ]]; do
     --scope) SCOPE="$2"; shift 2 ;;
     --base-ref) BASE_REF="$2"; shift 2 ;;
     --autofix) AUTOFIX=true; shift ;;
+    --tools) ONLY_TOOLS="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
+
+# Parse --tools into an array for filtering
+only_filter=()
+if [[ -n "$ONLY_TOOLS" ]]; then
+  IFS=',' read -ra only_filter <<< "$ONLY_TOOLS"
+fi
+
+# Parse disabled tools into an array
+disabled_filter=()
+if [[ -n "$DISABLED_TOOLS" ]]; then
+  IFS=',' read -ra disabled_filter <<< "$DISABLED_TOOLS"
+fi
 
 if [[ -z "$STACK_JSON" ]] || ! [[ -f "$STACK_JSON" ]]; then
   log_error "Stack JSON file required (--stack-json)"
@@ -58,10 +89,15 @@ parse_json_array() {
   echo "$1" | tr -d '[]"' | tr ',' '\n' | tr -d ' ' | grep -v '^$'
 }
 
-stack_data=$(cat "$STACK_JSON")
-languages=$(echo "$stack_data" | grep '"languages"' | sed 's/.*: *//;s/,$//')
-has_docker=$(echo "$stack_data" | grep '"docker"' | sed 's/.*: *//;s/,$//' | tr -d ' ')
-iac_tools=$(echo "$stack_data" | grep '"iacTools"' | sed 's/.*: *//;s/,$//')
+# Read each field on its own line to avoid whitespace-splitting JSON arrays
+_stack_fields=$(python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(json.dumps(d.get('languages', [])))
+print(str(d.get('docker', False)).lower())
+print(json.dumps(d.get('iacTools', [])))
+" "$STACK_JSON" 2>/dev/null || printf '[]\nfalse\n[]\n')
+{ IFS= read -r languages; IFS= read -r has_docker; IFS= read -r iac_tools; } <<< "$_stack_fields"
 
 # Parse available tools from tools JSON
 available_tools=()
@@ -70,10 +106,10 @@ if [[ -n "$TOOLS_JSON" ]] && [[ -f "$TOOLS_JSON" ]]; then
     [[ -n "$tool" ]] && available_tools+=("$tool")
   done < <(python3 -c "
 import json, sys
-data = json.load(open('$TOOLS_JSON'))
+data = json.load(open(sys.argv[1]))
 for t in data.get('available', []):
     print(t)
-" 2>/dev/null || true)
+" "$TOOLS_JSON" 2>/dev/null || true)
 fi
 
 # Determine which scanners to run
@@ -116,8 +152,26 @@ if echo "$iac_tools" | grep -q '[a-z]'; then
   done
 fi
 
-# Filter to available tools only
+# Filter to available tools only (and apply --tools filter if set)
 for tool in "${needed_tools[@]}"; do
+  # If --tools was specified, skip tools not in the filter list
+  if [[ ${#only_filter[@]} -gt 0 ]]; then
+    in_filter=false
+    for f in "${only_filter[@]}"; do
+      [[ "$f" == "$tool" ]] && in_filter=true && break
+    done
+    $in_filter || continue
+  fi
+
+  # Skip disabled tools (from config)
+  if [[ ${#disabled_filter[@]} -gt 0 ]]; then
+    is_disabled=false
+    for d in "${disabled_filter[@]}"; do
+      [[ "$d" == "$tool" ]] && is_disabled=true && break
+    done
+    $is_disabled && continue
+  fi
+
   if [[ ${#available_tools[@]} -gt 0 ]]; then
     for avail in "${available_tools[@]}"; do
       if [[ "$avail" == "$tool" ]]; then
@@ -143,6 +197,8 @@ echo "" >&2
 # ── Run each scanner ──────────────────────────────────────────────────
 ALL_FINDINGS=()
 ALL_SUMMARIES=()
+FAILED_SCANNERS=()
+SKIPPED_SCANNERS=()
 
 for scanner in "${scanners_to_run[@]}"; do
   SCANNER_SCRIPT="${SCRIPT_DIR}/scanners/${scanner}.sh"
@@ -156,16 +212,26 @@ for scanner in "${scanners_to_run[@]}"; do
   [[ -n "$SCOPE_FILE" ]] && SCANNER_ARGS+=("--scope-file" "$SCOPE_FILE")
   $AUTOFIX && SCANNER_ARGS+=("--autofix")
 
-  # Run scanner (don't fail the whole scan if one scanner fails)
+  # Run scanner — capture stdout (last line = findings file path) and exit code
   findings_file=""
-  if findings_file=$(bash "$SCANNER_SCRIPT" "${SCANNER_ARGS[@]}" 2>&1 | tail -1) && \
-     [[ -n "$findings_file" ]] && [[ -f "$findings_file" ]]; then
+  scanner_exit=0
+  findings_file=$(bash "$SCANNER_SCRIPT" "${SCANNER_ARGS[@]}" | tail -1) || scanner_exit=$?
+
+  if [[ $scanner_exit -eq 2 ]]; then
+    # Exit 2 = tool failure (not "findings found")
+    FAILED_SCANNERS+=("$scanner")
+    log_error "Scanner $scanner failed — results excluded"
+  elif [[ -n "$findings_file" ]] && [[ -f "$findings_file" ]]; then
     ALL_FINDINGS+=("$findings_file")
-    # Create summary
     summary=$(create_summary "$findings_file" "$scanner")
     ALL_SUMMARIES+=("$summary")
+  elif [[ $scanner_exit -eq 0 ]]; then
+    # Exit 0 with no output = scanner determined it's not applicable and skipped
+    SKIPPED_SCANNERS+=("$scanner")
+    log_info "Scanner $scanner skipped (not applicable)"
   else
-    log_warn "Scanner $scanner failed or produced no output"
+    FAILED_SCANNERS+=("$scanner")
+    log_error "Scanner $scanner produced no output"
   fi
 
   echo "" >&2
@@ -189,10 +255,20 @@ low=$(grep -c '"severity":"low"' "$MERGED_FILE" 2>/dev/null || echo 0)
 echo "" >&2
 log_step "Scan complete"
 echo "" >&2
+if [[ ${#SKIPPED_SCANNERS[@]} -gt 0 ]]; then
+  log_info "Skipped scanners (${#SKIPPED_SCANNERS[@]}): ${SKIPPED_SCANNERS[*]}"
+fi
+if [[ ${#FAILED_SCANNERS[@]} -gt 0 ]]; then
+  log_error "Failed scanners (${#FAILED_SCANNERS[@]}): ${FAILED_SCANNERS[*]}"
+fi
 if [[ "$total" -gt 0 ]]; then
   log_warn "Total findings: $total (high: $high, medium: $medium, low: $low)"
 else
-  log_ok "No security issues found!"
+  if [[ ${#FAILED_SCANNERS[@]} -gt 0 ]]; then
+    log_warn "No findings from successful scanners, but ${#FAILED_SCANNERS[@]} scanner(s) failed"
+  else
+    log_ok "No security issues found!"
+  fi
 fi
 
 # Clean up scope file
@@ -206,6 +282,16 @@ for i in "${!ALL_SUMMARIES[@]}"; do
 done
 summaries_json+="]"
 
+# Build skipped/failed scanners JSON arrays
+skipped_json="[]"
+if [[ ${#SKIPPED_SCANNERS[@]} -gt 0 ]]; then
+  skipped_json=$(printf '["%s"]' "$(IFS='","'; echo "${SKIPPED_SCANNERS[*]}")")
+fi
+failed_json="[]"
+if [[ ${#FAILED_SCANNERS[@]} -gt 0 ]]; then
+  failed_json=$(printf '["%s"]' "$(IFS='","'; echo "${FAILED_SCANNERS[*]}")")
+fi
+
 cat <<EOF
 {
   "scanDir": "$SCAN_OUTPUT_DIR",
@@ -218,6 +304,8 @@ cat <<EOF
   "medium": $medium,
   "low": $low,
   "scannersRun": $(printf '["%s"]' "$(IFS='","'; echo "${scanners_to_run[*]}")"),
+  "skippedScanners": $skipped_json,
+  "failedScanners": $failed_json,
   "summaries": $summaries_json
 }
 EOF
