@@ -134,7 +134,7 @@ After each successful step, the coordinator runs `git add -A && git commit --no-
 1. Record `{{END_TIME}}` — current date+time in ISO 8601 format.
 2. Scan `{{output_folder}}/` recursively for files modified after `{{START_TIME}}` to build the artifact list.
 3. Create `{{auto_bmad_artifacts}}/` directory if it doesn't exist.
-4. Generate the report and save it to `{{auto_bmad_artifacts}}/pipeline-report-plan-YYYY-MM-DD-HHMMSS.md` (using `{{END_TIME}}` for the timestamp).
+4. Generate the report and save it to `{{auto_bmad_artifacts}}/plan-report-YYYY-MM-DD-HHMMSS.md` (using `{{END_TIME}}` for the timestamp).
 5. Print the full report to the user.
 
 Use this template for the report:

@@ -31,6 +31,8 @@ IF user provides epic-story number (e.g. 1-1, 1-2, 2.1, 2.2, etc.) or a file pat
 THEN set {{STORY_ID}} to the provided epic-story number (always a single story).
 ELSE ask to provide a epic-story number to identify the story to work on and set {{STORY_ID}} to the provided value.
 
+Set {{EPIC_ID}} and {{STORY_NUM}} by splitting {{STORY_ID}} on the dash/dot/space separator.
+
 # Story Pipeline
 
 Run the BMAD story pipeline for story {{STORY_ID}} as a minimal sequence of BMAD slash commands — lightweight orchestration with git safety, no reports.
@@ -145,13 +147,13 @@ The one-line summary should describe the user-facing outcome, not "story complet
 1. Record `{{END_TIME}}` — current date+time in ISO 8601 format.
 2. Scan `{{output_folder}}/` recursively for files modified after `{{START_TIME}}` to build the artifact list.
 3. Create `{{auto_bmad_artifacts}}/` directory if it doesn't exist.
-4. Generate the report and save it to `{{auto_bmad_artifacts}}/pipeline-report-story-{{STORY_ID}}-YYYY-MM-DD-HHMMSS.md` (using `{{END_TIME}}` for the timestamp).
+4. Generate the report and save it to `{{auto_bmad_artifacts}}/epic-{{EPIC_ID}}-story-{{STORY_NUM}}-YYYY-MM-DD-HHMMSS.md` (using `{{END_TIME}}` for the timestamp).
 5. Print the full report to the user.
 
 Use this template for the report:
 
 ```markdown
-# Pipeline Report: story [{{STORY_ID}}]
+# Pipeline Report: epic {{EPIC_ID}} story {{STORY_NUM}}
 
 | Field | Value |
 |-------|-------|
