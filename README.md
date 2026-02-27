@@ -27,7 +27,7 @@ Add the marketplace from the **Marketplace** tab of `/plugin` or directly:
 /plugin marketplace add stefanoginella/claude-code-plugins
 ```
 
-Then install individual plugins from the **Discover** tab of `/plugin` or directly.
+Then follow the installation instructions in the README of each plugin.
 
 
 ## 🤝 Contributing
