@@ -1,5 +1,5 @@
 ---
-name: security-guardian-ci
+name: code-guardian-ci
 description: Generate CI security scanning pipeline configuration
 argument-hint: "[github-actions|gitlab-ci|auto]"
 allowed-tools:

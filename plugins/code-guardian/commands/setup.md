@@ -1,5 +1,5 @@
 ---
-name: security-guardian-setup
+name: code-guardian-setup
 description: Check and install security scanning tools for the detected stack
 allowed-tools:
   - Bash

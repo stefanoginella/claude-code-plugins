@@ -1,5 +1,5 @@
 ---
-name: security-guardian-scan
+name: code-guardian-scan
 description: Run security scan on the codebase using detected stack-appropriate tools
 argument-hint: "[--mode interactive|yolo] [--scope codebase|uncommitted|unpushed] [--refresh]"
 allowed-tools:
