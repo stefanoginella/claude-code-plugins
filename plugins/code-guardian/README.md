@@ -222,7 +222,7 @@ The plugin caches stack detection and tool availability results in `.claude/code
 
 ## 📝 Scan Reports
 
-Each scan automatically saves a detailed markdown report to `.code-guardian/scan-reports/scan-report-YYYYMMDD-HHMMSS.md`. Reports are timestamped so multiple scans never overwrite each other.
+Each scan automatically saves a detailed markdown report to `.code-guardian/scan-reports/scan-report-YYYYMMDD-HHMMSS.md`. Within the same Claude session, the original report is treated as a living document — rescans update it in-place by checking off resolved findings and appending new ones, so you never lose history. A new session always creates a fresh report.
 
 **Report contents:**
 - Header with date, scope, and scanners run

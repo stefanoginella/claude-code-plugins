@@ -14,6 +14,7 @@ BASE_REF=""
 AUTOFIX=false
 ONLY_TOOLS=""
 DISABLED_TOOLS=""
+REPORT_FILE_OVERRIDE=""
 
 # Load config defaults (CLI args override these)
 _cfg_read() { bash "${SCRIPT_DIR}/read-config.sh" --get "$1" 2>/dev/null || true; }
@@ -51,6 +52,7 @@ while [[ $# -gt 0 ]]; do
     --base-ref) BASE_REF="$2"; shift 2 ;;
     --autofix) AUTOFIX=true; shift ;;
     --tools) ONLY_TOOLS="$2"; shift 2 ;;
+    --report-file) REPORT_FILE_OVERRIDE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -324,6 +326,8 @@ summaries_json+="]"
 
 # Generate persistent scan report
 REPORT_FILE=""
+REPORT_ARGS=()
+[[ -n "$REPORT_FILE_OVERRIDE" ]] && REPORT_ARGS+=(--report-file "$REPORT_FILE_OVERRIDE")
 REPORT_FILE=$(
   bash "${SCRIPT_DIR}/generate-report.sh" \
     --findings-file "$MERGED_FILE" \
@@ -335,7 +339,8 @@ REPORT_FILE=$(
     --failed-scanners "$(IFS=','; echo "${FAILED_SCANNERS[*]+"${FAILED_SCANNERS[*]}"}")" \
     --summaries-json "$summaries_json" \
     --total "$total" --high "$high" --medium "$medium" --low "$low" \
-    --timestamp "$SCAN_TIMESTAMP"
+    --timestamp "$SCAN_TIMESTAMP" \
+    ${REPORT_ARGS[@]+"${REPORT_ARGS[@]}"}
 ) || REPORT_FILE=""
 if [[ -n "$REPORT_FILE" ]]; then
   log_info "Scan report saved: $REPORT_FILE"

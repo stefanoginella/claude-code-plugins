@@ -20,6 +20,7 @@ HIGH=0
 MEDIUM=0
 LOW=0
 TIMESTAMP=""
+REPORT_FILE_OVERRIDE=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -36,6 +37,7 @@ while [[ $# -gt 0 ]]; do
     --medium)                 MEDIUM="$2"; shift 2 ;;
     --low)                    LOW="$2"; shift 2 ;;
     --timestamp)              TIMESTAMP="$2"; shift 2 ;;
+    --report-file)            REPORT_FILE_OVERRIDE="$2"; shift 2 ;;
     *) shift ;;
   esac
 done
@@ -50,7 +52,13 @@ fi
 # Create report output directory
 REPORT_DIR=".code-guardian/scan-reports"
 mkdir -p "$REPORT_DIR"
-REPORT_FILE="${REPORT_DIR}/scan-report-${TIMESTAMP}.md"
+
+# Use override path if provided and the file exists; otherwise generate a new one
+if [[ -n "$REPORT_FILE_OVERRIDE" ]] && [[ -f "$REPORT_FILE_OVERRIDE" ]]; then
+  REPORT_FILE="$REPORT_FILE_OVERRIDE"
+else
+  REPORT_FILE="${REPORT_DIR}/scan-report-${TIMESTAMP}.md"
+fi
 
 # Build install commands JSON for skipped/failed tools
 install_cmds_json="{}"

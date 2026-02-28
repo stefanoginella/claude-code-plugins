@@ -106,6 +106,13 @@ Read the findings file from the scan output (each line is a JSON finding with: t
 
 **Do not re-run the scan after fixing.** The report file is generated once from the initial scan. After fixes, update it in-place — do not run a second scan to produce a new report. Checkboxes and the fix summary are the only changes made to the existing report file.
 
+**Rescan within the same session**: If the user explicitly asks to rescan (e.g., to verify fixes), run scan.sh normally — a new timestamped report will be created. Then update the **original** report from this session:
+1. Cross-reference the new scan results with the original report's findings
+2. Check off (`- [x]`) any findings in the original report that no longer appear in the rescan
+3. Add any **new** findings from the rescan (findings not in the original report) as unchecked items
+4. Append a `## Rescan` section noting the rescan date, how many findings were resolved, and how many new findings appeared
+5. Delete the new rescan report file — the original report is the single living document for this session
+
 ### Step 5: Final Report
 
 Always end with these sections:
