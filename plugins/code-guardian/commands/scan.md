@@ -113,6 +113,16 @@ Read the findings file from the scan output (each line is a JSON finding with: t
 4. Append a `## Rescan` section noting the rescan date, how many findings were resolved, and how many new findings appeared
 5. Delete the new rescan report file — the original report is the single living document for this session
 
+### Step 4b: Write Report Summary
+
+After the report file is generated, use the Edit tool to replace the `<!-- SUMMARY_PLACEHOLDER -->` marker in the report with a short textual summary paragraph (2-4 sentences). The summary should:
+- State the overall health of the scan (e.g. "The scan completed cleanly" or "Several security issues were found")
+- Highlight the most important findings (e.g. "3 high-severity issues in authentication code require immediate attention")
+- Mention auto-fixable count if any (e.g. "5 findings can be auto-fixed")
+- Note any scanners that were skipped due to missing tools
+
+This paragraph goes right below the severity count table inside `## Summary`, giving readers a quick at-a-glance understanding before they dive into the details.
+
 ### Step 5: Final Report
 
 Always end with these sections:

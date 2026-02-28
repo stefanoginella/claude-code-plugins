@@ -172,6 +172,10 @@ if fixable_count > 0:
     lines.append(f"| Auto-fixable | {fixable_count} ({', '.join(fixable_tools)}) |")
 lines.append("")
 
+# Placeholder for AI-generated textual summary
+lines.append("<!-- SUMMARY_PLACEHOLDER -->")
+lines.append("")
+
 # Per-tool breakdown
 if summaries:
     # Build per-tool fixable counts from findings
