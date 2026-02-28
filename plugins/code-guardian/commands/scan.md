@@ -92,9 +92,10 @@ Read the findings file from the scan output (each line is a JSON finding with: t
 **Then, after the report**:
 
 - **If `--autofix` was passed**: Proceed to fix automatically — re-run scan.sh with `--autofix` for auto-fixable findings, use the **security-fixer** agent for the rest. Update the report file (see below).
-- **Otherwise (default)**: Ask the user what to do next:
-   - "Fix all high severity"
-   - "Fix all auto-fixable"
+- **If no findings are fixable** (no high-severity findings AND no auto-fixable findings): Skip the question entirely. Do NOT use AskUserQuestion. Proceed directly to the Final Report (Step 5).
+- **Otherwise (default)**: Use AskUserQuestion to ask "How would you like to handle the fixable findings?" with these options (include only options that are relevant — e.g., omit "Fix all high severity" if there are no high-severity findings):
+   - "Fix all high severity" (only if there are high-severity findings)
+   - "Fix all auto-fixable" (only if there are auto-fixable findings)
    - "Fix specific findings (by number)"
    - "Done — no fixes needed"
   If the user chooses to fix: re-run scan.sh with `--autofix` for auto-fixable findings, use the **security-fixer** agent for the rest. Update the report file (see below).
