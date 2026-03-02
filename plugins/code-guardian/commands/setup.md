@@ -102,23 +102,20 @@ Then tell the user they're all set and can run `/code-guardian:scan` anytime. Do
 
 ### Step 7: Configure Scan Defaults (only if `--configure` was passed in `$ARGUMENTS`)
 
-Ask with AskUserQuestion (multi-select): "Which tools do you want to run by default?" — list all available tools as options.
-
-Based on the answer, determine the config:
+If `--configure` is present in `$ARGUMENTS`, ask the user with AskUserQuestion (multi-select): "Which tools do you want to run by default?" — list all available tools as options. Based on the answer, determine the config:
 - If the user selected ALL available tools → don't set `tools` (default runs everything)
 - If the user selected a subset → set `tools` to that list
-- Also ask: "Any tools you want to permanently disable?" — list all available tools. Set `disabled` for any selected.
 
-Also ask: "Enable Docker fallback?" — explain that this allows Docker images to be used for tools not installed locally, with hardened security controls (pinned versions, read-only mounts, network isolation where possible). Default: No.
+Then AskUserQuestion (multi-select): "What scope do you want to scan by default?" — options: "entire codebase" (default) sets `scope: "codebase"`, "only uncommitted changes" sets `scope: "uncommitted"`, "only unpushed commits" sets `scope: "unpushed"`.
+
+Then AskUserQuestion (multi-select): "Enable Docker fallback?" — explain that this allows Docker images to be used for tools not installed locally, with hardened security controls (pinned versions, read-only mounts, network isolation where possible). Options: "No" (default) sets `dockerFallback: false`, "Yes": `dockerFallback: true`
 
 Write the config file `.claude/code-guardian.config.json`:
 
 ```json
 {
   "tools": ["semgrep", "gitleaks", "trivy"],
-  "disabled": ["trufflehog", "dockle"],
   "scope": "codebase",
-  "autofix": false,
   "dockerFallback": false
 }
 ```
@@ -134,14 +131,10 @@ Tell the user: "Configuration saved to `.claude/code-guardian.config.json`. CLI 
 | Key              | Type     | Default        | Description                                           |
 |------------------|----------|----------------|-------------------------------------------------------|
 | `tools`          | string[] | (all available) | Only run these tools. Omit to run all available.     |
-| `disabled`       | string[] | (none)          | Never run these tools, even if available.            |
 | `scope`          | string   | `"codebase"`    | Default scan scope: codebase, uncommitted, unpushed. |
-| `autofix`        | boolean  | `false`         | Auto-fix findings by default.                        |
 | `dockerFallback` | boolean  | `false`         | Allow Docker images as fallback when tools aren't installed locally. |
 
-**Precedence**: CLI `--tools` / `--scope` / `--autofix` always override config values.
-
-**`tools` vs `disabled`**: Use `tools` to whitelist (only run these). Use `disabled` to blacklist (run everything except these). If both are set, `tools` takes precedence.
+**Precedence**: CLI `--tools` / `--scope` always override config values.
 
 ## Important Notes
 

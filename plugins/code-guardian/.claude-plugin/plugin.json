@@ -1,7 +1,7 @@
 {
   "name": "code-guardian",
   "version": "0.0.26",
-  "description": "[EXPERIMENTAL] Deterministic security scanning layer for Claude Code with AI-powered review. Auto-detects stack, runs open-source security CLI tools (SAST, secrets, dependencies, containers, IaC), then an AI reviewer catches business logic flaws, auth bypass, race conditions, and other issues scanners miss. Auto-fixes issues and recommends CI additions. Supports interactive and yolo modes. Check https://github.com/stefanoginella/claude-code-plugins/blob/main/plugins/code-guardian/README.md for details.",
+  "description": "[EXPERIMENTAL] Deterministic + AI security scanning layer for Claude Code with AI-powered review. Check https://github.com/stefanoginella/claude-code-plugins/blob/main/plugins/code-guardian/README.md for details.",
   "author": {
     "name": "Stefano Ginella"
   },

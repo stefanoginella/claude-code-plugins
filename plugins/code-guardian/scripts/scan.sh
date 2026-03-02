@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Main scan orchestrator — runs relevant scanners based on detected stack
-# Usage: scan.sh --stack-json <file> --scope <scope> [--base-ref <ref>] [--autofix] [--tools-json <file>] [--tools tool1,tool2,...] [--disabled tool1,tool2,...]
+# Usage: scan.sh --stack-json <file> --scope <scope> [--base-ref <ref>] [--tools-json <file>] [--tools tool1,tool2,...]
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -11,9 +11,7 @@ STACK_JSON=""
 TOOLS_JSON=""
 SCOPE="codebase"
 BASE_REF=""
-AUTOFIX=false
 ONLY_TOOLS=""
-DISABLED_TOOLS=""
 REPORT_FILE_OVERRIDE=""
 
 # Load config defaults (CLI args override these)
@@ -22,14 +20,8 @@ _cfg_read() { bash "${SCRIPT_DIR}/read-config.sh" --get "$1" 2>/dev/null || true
 _cfg_scope=$(_cfg_read scope)
 [[ -n "$_cfg_scope" ]] && SCOPE="$_cfg_scope"
 
-_cfg_autofix=$(_cfg_read autofix)
-[[ "$_cfg_autofix" == "true" ]] && AUTOFIX=true
-
 _cfg_tools=$(_cfg_read tools)
 [[ -n "$_cfg_tools" ]] && ONLY_TOOLS="$_cfg_tools"
-
-_cfg_disabled=$(_cfg_read disabled)
-[[ -n "$_cfg_disabled" ]] && DISABLED_TOOLS="$_cfg_disabled"
 
 # Docker fallback: env > config > default (false)
 if [[ -z "${CG_DOCKER_FALLBACK:-}" ]]; then
@@ -50,7 +42,6 @@ while [[ $# -gt 0 ]]; do
     --tools-json) TOOLS_JSON="$2"; shift 2 ;;
     --scope) SCOPE="$2"; shift 2 ;;
     --base-ref) BASE_REF="$2"; shift 2 ;;
-    --autofix) AUTOFIX=true; shift ;;
     --tools) ONLY_TOOLS="$2"; shift 2 ;;
     --report-file) REPORT_FILE_OVERRIDE="$2"; shift 2 ;;
     *) shift ;;
@@ -61,12 +52,6 @@ done
 only_filter=()
 if [[ -n "$ONLY_TOOLS" ]]; then
   while IFS= read -r t; do [[ -n "$t" ]] && only_filter+=("$t"); done < <(tr ',' '\n' <<< "$ONLY_TOOLS")
-fi
-
-# Parse disabled tools into an array
-disabled_filter=()
-if [[ -n "$DISABLED_TOOLS" ]]; then
-  while IFS= read -r t; do [[ -n "$t" ]] && disabled_filter+=("$t"); done < <(tr ',' '\n' <<< "$DISABLED_TOOLS")
 fi
 
 if [[ -z "$STACK_JSON" ]] || ! [[ -f "$STACK_JSON" ]]; then
@@ -82,7 +67,6 @@ export SCAN_OUTPUT_DIR
 log_step "Security scan started"
 log_info "Scope: $SCOPE"
 [[ -n "$BASE_REF" ]] && log_info "Base ref: $BASE_REF"
-$AUTOFIX && log_info "Mode: YOLO (autofix enabled)"
 [[ "$CG_DOCKER_FALLBACK" == "1" ]] && log_info "Docker fallback: enabled" || log_info "Docker fallback: disabled (local tools only)"
 echo "" >&2
 
@@ -178,15 +162,6 @@ for tool in "${needed_tools[@]}"; do
     $in_filter || continue
   fi
 
-  # Skip disabled tools (from config)
-  if [[ ${#disabled_filter[@]} -gt 0 ]]; then
-    is_disabled=false
-    for d in "${disabled_filter[@]}"; do
-      [[ "$d" == "$tool" ]] && is_disabled=true && break
-    done
-    $is_disabled && continue
-  fi
-
   # Skip dependency scanners when scoped, unless their manifest/lockfiles changed
   if [[ -n "$SCOPE_FILE" ]] && [[ -f "$SCOPE_FILE" ]]; then
     manifest_files=$(get_tool_manifest_files "$tool")
@@ -245,7 +220,6 @@ for scanner in "${scanners_to_run[@]}"; do
 
   SCANNER_ARGS=()
   [[ -n "$SCOPE_FILE" ]] && SCANNER_ARGS+=("--scope-file" "$SCOPE_FILE")
-  $AUTOFIX && SCANNER_ARGS+=("--autofix")
 
   # Run scanner — capture stdout (last line = findings file path) and exit code
   findings_file=""
@@ -368,18 +342,17 @@ print(json.dumps({
   'reportFile': sys.argv[3],
   'scope': sys.argv[4],
   'baseRef': sys.argv[5],
-  'autofix': sys.argv[6] == 'true',
-  'totalFindings': int(sys.argv[7]),
-  'high': int(sys.argv[8]),
-  'medium': int(sys.argv[9]),
-  'low': int(sys.argv[10]),
-  'scannersRun': json.loads(sys.argv[11]),
-  'skippedScanners': json.loads(sys.argv[12]),
-  'scopeSkippedScanners': json.loads(sys.argv[13]),
-  'failedScanners': json.loads(sys.argv[14]),
-  'summaries': json.loads(sys.argv[15]),
+  'totalFindings': int(sys.argv[6]),
+  'high': int(sys.argv[7]),
+  'medium': int(sys.argv[8]),
+  'low': int(sys.argv[9]),
+  'scannersRun': json.loads(sys.argv[10]),
+  'skippedScanners': json.loads(sys.argv[11]),
+  'scopeSkippedScanners': json.loads(sys.argv[12]),
+  'failedScanners': json.loads(sys.argv[13]),
+  'summaries': json.loads(sys.argv[14]),
 }, indent=2))
 " "$SCAN_OUTPUT_DIR" "$MERGED_FILE" "$REPORT_FILE" "$SCOPE" "$BASE_REF" \
-  "$AUTOFIX" "$total" "$high" "$medium" "$low" \
+  "$total" "$high" "$medium" "$low" \
   "$(_json_array "${scanners_to_run[@]}")" \
   "$skipped_json" "$scope_skipped_json" "$failed_json" "$summaries_json"

@@ -10,7 +10,8 @@ description: "Provides knowledge about code-guardian's security scanning tools, 
 code-guardian is a deterministic security scanning plugin for Claude Code. It detects the project stack and runs appropriate open-source CLI tools. All tools are free for private repositories.
 
 ### Commands
-- `/code-guardian:code-guardian-scan` — Main security scan (interactive or yolo mode)
+- `/code-guardian:code-guardian-scan` — Run a security scan (report only — never modifies files)
+- `/code-guardian:code-guardian-fix` — Fix findings from the latest scan report
 - `/code-guardian:code-guardian-setup` — Check tool availability and show install instructions
 - `/code-guardian:code-guardian-ci` — Generate CI security pipeline config
 

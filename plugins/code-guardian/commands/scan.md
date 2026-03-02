@@ -1,7 +1,7 @@
 ---
 name: code-guardian-scan
 description: Run security scan on the codebase using detected stack-appropriate tools
-argument-hint: "[--scope codebase|uncommitted|unpushed] [--tools tool1,tool2,...] [--refresh] [--autofix]"
+argument-hint: "[--scope codebase|uncommitted|unpushed] [--tools tool1,tool2,...] [--refresh]"
 allowed-tools:
   - Bash
   - Read
@@ -28,9 +28,8 @@ Parse from `$ARGUMENTS`:
 - `--scope` (codebase, uncommitted, unpushed) — default: codebase (or config `scope`)
 - `--tools` — comma-separated list of specific tools to run (e.g. `--tools semgrep,gitleaks`). Only these tools will run; all others are skipped. If omitted, uses config `tools` if set, otherwise all available tools run.
 - `--refresh` — force re-detection, ignore cache
-- `--autofix` — run tools with auto-fix flags and AI-fix remaining issues (or config `autofix`)
 
-Config values (`tools`, `disabled`, `scope`, `autofix`) are loaded automatically by scan.sh. CLI args override them.
+Config values (`tools`, `scope`) are loaded automatically by scan.sh. CLI args override them.
 
 If scope is not provided via CLI, scan.sh uses the config `scope` value, falling back to `codebase`. Do NOT ask the user for scope — just proceed with the default. If the user passed `--scope unpushed` without a base ref, ask with AskUserQuestion: "Compare against which base?" — default branch, remote tracking branch, or custom ref.
 
@@ -62,7 +61,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/cache-state.sh --write \
 
 ### Step 3: Run Security Scan
 
-**Always run the scan in report-only mode first** — never pass `--autofix` to the initial scan. This ensures the user sees the full picture before any files are modified.
+Run the scan in report-only mode. This command never fixes code — it only detects and reports.
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan.sh \
@@ -126,42 +125,23 @@ Read the findings file from the scan output (each line is a JSON finding with: t
 
 **If findings exist**:
 1. Present findings grouped by severity (high first), then by category
-2. Show a summary table:
+2. Show a numbered summary table (numbers match the report):
    ```
    | # | Severity | Tool | Rule | File:Line | Auto-fixable |
    ```
-3. Proceed to the Final Report (Step 5) — do NOT fix anything yet
-
-**Then, after the report**:
-
-- **If `--autofix` was passed**: Proceed to fix automatically — re-run scan.sh with `--autofix` for auto-fixable findings, use the **security-fixer** agent for the rest. Update the report file (see below).
-- **If no findings are fixable** (no high-severity findings AND no auto-fixable findings): Skip the question entirely. Do NOT use AskUserQuestion. Proceed directly to the Final Report (Step 5).
-- **Otherwise (default)**: Use AskUserQuestion to ask "How would you like to handle the fixable findings?" with these options (include only options that are relevant — e.g., omit "Fix all high severity" if there are no high-severity findings):
-   - "Fix all high severity" (only if there are high-severity findings)
-   - "Fix all auto-fixable" (only if there are auto-fixable findings)
-   - "Fix specific findings (by number)"
-   - "Done — no fixes needed"
-  If the user chooses to fix: re-run scan.sh with `--autofix` for auto-fixable findings, use the **security-fixer** agent for the rest. Update the report file (see below).
-
-**After any fixes are applied**, update the saved report file using the Edit tool:
-1. For each successfully fixed finding, change its checkbox from `- [ ]` to `- [x]`
-2. Append a `## What Was Fixed` section at the end of the report listing what was fixed, how (tool autofix vs AI fix), and any remaining unfixed items with reasons
-
-**Do not re-run the scan after fixing.** The report file is generated once from the initial scan. After fixes, update it in-place — do not run a second scan to produce a new report. Checkboxes and the fix summary are the only changes made to the existing report file.
-
-**Rescan within the same session**: If the user explicitly asks to rescan (e.g., to verify fixes), run scan.sh normally — a new timestamped report will be created. Then update the **original** report from this session:
-1. Cross-reference the new scan results with the original report's findings
-2. Check off (`- [x]`) any findings in the original report that no longer appear in the rescan
-3. Add any **new** findings from the rescan (findings not in the original report) as unchecked items
-4. Append a `## Rescan` section noting the rescan date, how many findings were resolved, and how many new findings appeared
-5. Delete the new rescan report file — the original report is the single living document for this session
+3. Save the findings JSONL alongside the report for use by the fix command:
+   ```bash
+   cp "$FINDINGS_FILE" "${reportFile%.md}.findings.jsonl"
+   ```
+   (where `reportFile` is the `reportFile` value from the scan.sh JSON output)
+4. Proceed to the Final Report (Step 5)
 
 ### Step 4b: Write Report Summary
 
 After the report file is generated, use the Edit tool to replace the `<!-- SUMMARY_PLACEHOLDER -->` marker in the report with a short textual summary paragraph (2-4 sentences). The summary should:
 - State the overall health of the scan (e.g. "The scan completed cleanly" or "Several security issues were found")
 - Highlight the most important findings (e.g. "3 high-severity issues in authentication code require immediate attention")
-- Mention auto-fixable count if any (e.g. "5 findings can be auto-fixed")
+- Mention auto-fixable count if any (e.g. "5 of these can be auto-fixed")
 - Note any scanners that were skipped due to missing tools
 
 This paragraph goes right below the severity count table inside `## Summary`, giving readers a quick at-a-glance understanding before they dive into the details.
@@ -171,17 +151,20 @@ This paragraph goes right below the severity count table inside `## Summary`, gi
 Always end with these sections:
 
 1. **Findings summary** — counts by severity
-2. **What was fixed** (if any fixes were applied)
-3. **Remaining issues** (if any, with explanations)
-4. **Skipped tools** — list any tools that were needed but not installed, with install commands:
+2. **Skipped tools** — list any tools that were needed but not installed, with install commands:
    > The following tools were not available and their checks were skipped:
    > - `trivy` — install: `brew install trivy`
    > - `checkov` — install: `pip3 install checkov`
    >
    > Run `/code-guardian:code-guardian-setup` to see all tool status.
-5. **CI recommendation** — if no CI security scanning detected, suggest `/code-guardian:code-guardian-ci`
-6. **Scan report** — tell the user a detailed report was saved to disk (the path is in the `reportFile` field of the scan output JSON). All detected findings are always listed as `- [ ]` checkbox items regardless of mode. Example: "A detailed report has been saved to `<reportFile>`. Each finding is a checkbox you can mark off as you fix it."
-7. **AI review results** — report how many AI review findings were found and which categories they fall into (e.g., "AI review found 3 additional findings: 2 auth-bypass, 1 race-condition"). If no AI findings, note that the AI review completed cleanly.
+3. **CI recommendation** — if no CI security scanning detected, suggest `/code-guardian:code-guardian-ci`
+4. **Scan report** — tell the user a detailed report was saved to disk (the path is in the `reportFile` field of the scan output JSON). Each finding is numbered and listed as a `- [ ]` checkbox item. Example: "A detailed report has been saved to `<reportFile>`."
+5. **AI review results** — report how many AI review findings were found and which categories they fall into (e.g., "AI review found 3 additional findings: 2 auth-bypass, 1 race-condition"). If no AI findings, note that the AI review completed cleanly.
+6. **Fix command** — if there are any findings, end with:
+   > To fix findings, run `/code-guardian:code-guardian-fix`. Options:
+   > - Fix all: `/code-guardian:code-guardian-fix` (default — fixes everything)
+   > - Fix by severity: `/code-guardian:code-guardian-fix --levels high` or `--levels high,medium`
+   > - Fix specific issues: `/code-guardian:code-guardian-fix --issues 1,3,5` (use issue numbers from the report)
 
 ## Scope & Dependency Scanners
 
@@ -195,8 +178,5 @@ Skipped dependency scanners are reported in the final summary under "Skipped (no
 
 ## Important Notes
 
-- Never modify files outside the project directory
+- This command only scans and reports — it never modifies project files
 - For secret findings, NEVER display the actual secret value in output
-- When fixing code, explain what vulnerability you're addressing and why the fix works
-- Prefer minimal, targeted fixes over large refactors
-- After auto-fixes, verify the code still compiles/passes basic checks

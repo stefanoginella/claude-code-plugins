@@ -270,6 +270,7 @@ else:
         sev = f.get("severity", "info").lower()
         grouped.setdefault(sev, []).append(f)
 
+    finding_num = 0
     for sev in severity_order:
         items = grouped.get(sev, [])
         if not items:
@@ -277,6 +278,7 @@ else:
         lines.append(f"### {sev.upper()}")
         lines.append("")
         for f in items:
+            finding_num += 1
             tool    = f.get("tool", "?")
             rule    = f.get("rule", "")
             message = f.get("message", "").replace("\n", " ").strip()
@@ -290,7 +292,7 @@ else:
 
             suffix = " *(auto-fixable)*" if fixable else ""
             rule_part = f"`{rule}` -- " if rule else ""
-            lines.append(f"- [ ] **{sev.upper()}** [{tool}] {rule_part}{message} (`{location}`){suffix}")
+            lines.append(f"- [ ] **#{finding_num}** **{sev.upper()}** [{tool}] {rule_part}{message} (`{location}`){suffix}")
         lines.append("")
 
 # Skipped tools
