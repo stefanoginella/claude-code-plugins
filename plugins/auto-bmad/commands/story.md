@@ -61,7 +61,7 @@ After step 1 (Create) succeeds, glob `{{implementation_artifacts}}/{{STORY_ID}}-
 
 # Pipeline Steps
 
-After each successful step, the coordinator runs `git add -A && git commit --no-verify -m "wip({{STORY_ID}}): step N/12 <step-name> - done"` and prints a 1-line progress update: `Step N/12: <step-name> — <status>`. The coordinator must also track a running list of `(step_name, status, start_time, end_time)` — note the wall-clock time before and after each Task call to use in the final report.
+After each successful step, the coordinator runs `git add -A && git commit --no-verify -m "wip({{STORY_ID}}): step N/11 <step-name> - done"` and prints a 1-line progress update: `Step N/11: <step-name> — <status>`. The coordinator must also track a running list of `(step_name, status, start_time, end_time)` — note the wall-clock time before and after each Task call to use in the final report.
 
 ## Story Creation & Validation
 
@@ -75,7 +75,7 @@ After each successful step, the coordinator runs `git add -A && git commit --no-
 ## Test-First
 
 3. **Story {{STORY_ID}} ATDD**
-   - **Task prompt:** `/bmad-tea-testarch-atdd {{STORY_FILE}} yolo`
+   - **Task prompt:** `/bmad-tea-testarch-atdd {{STORY_FILE}} yolo — follow the test pyramid: prefer API-level and integration-level acceptance tests over E2E. Only create E2E tests for acceptance criteria that genuinely require full browser interaction (UI-specific flows). Generate unit tests for business logic criteria. Target a single browser (Chromium) for any E2E tests.`
 
 ## Development
 
@@ -98,21 +98,16 @@ After each successful step, the coordinator runs `git add -A && git commit --no-
 8. **Story {{STORY_ID}} NFR**
    - **Task prompt:** `/bmad-tea-testarch-nfr {{STORY_FILE}} yolo`
 
-## E2E Tests
-
-9. **Story {{STORY_ID}} E2E**
-   - **Task prompt:** `/bmad-bmm-qa-generate-e2e-tests {{STORY_FILE}} yolo`
-
 ## Traceability & Test Automation
 
-10. **Story {{STORY_ID}} Trace**
+9. **Story {{STORY_ID}} Trace**
    - **Task prompt:** `/bmad-tea-testarch-trace {{STORY_FILE}} yolo`
 
-11. **Story {{STORY_ID}} Test Automate**
-   - **Task prompt:** `/bmad-tea-testarch-automate {{STORY_FILE}} yolo`
+10. **Story {{STORY_ID}} Test Automate**
+    - **Task prompt:** `/bmad-tea-testarch-automate {{STORY_FILE}} yolo — when expanding test coverage, push new tests to the lowest viable layer (unit > integration/API > E2E). Do not add E2E tests for scenarios already covered at lower layers. Only add E2E tests to fill gaps in critical happy-path coverage.`
 
-12. **Story {{STORY_ID}} Test Review**
-   - **Task prompt:** `/bmad-tea-testarch-test-review {{STORY_FILE}} yolo`
+11. **Story {{STORY_ID}} Test Review**
+    - **Task prompt:** `/bmad-tea-testarch-test-review {{STORY_FILE}} yolo — include test pyramid compliance in the review: flag any E2E tests that duplicate coverage from lower layers (unit/integration/API), flag excessive E2E test counts, and recommend pushing tests down the pyramid where possible.`
 
 # Final Commit
 
@@ -182,10 +177,9 @@ Use this template for the report:
 | 6 | Code Review #2 | done | Xm | <issues found/fixed count by severity> |
 | 7 | Code Review #3 | done | Xm | <issues found/fixed count by severity> |
 | 8 | NFR | done | Xm | <NFR assessment result (pass/concerns)> |
-| 9 | E2E | done | Xm | <e2e tests generated count> |
-| 10 | Trace | done | Xm | <traceability coverage %> |
-| 11 | Test Automate | done | Xm | <tests automated count> |
-| 12 | Test Review | done | Xm | <test quality verdict> |
+| 9 | Trace | done | Xm | <traceability coverage %> |
+| 10 | Test Automate | done | Xm | <tests automated count, pyramid compliance> |
+| 11 | Test Review | done | Xm | <test quality verdict, pyramid violations flagged> |
 
 ## Key Decisions & Learnings
 
