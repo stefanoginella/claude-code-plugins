@@ -15,7 +15,7 @@ TOOL_SEMGREP_INSTALL_LINUX="pip3 install semgrep"
 TOOL_SEMGREP_CATEGORY="sast"
 
 # Trivy — vulnerability scanner (containers, fs, IaC)
-TOOL_TRIVY_DOCKER="aquasec/trivy:0.69.1"
+TOOL_TRIVY_DOCKER="aquasec/trivy:0.69.2"
 TOOL_TRIVY_INSTALL_MACOS="brew install trivy"
 TOOL_TRIVY_INSTALL_LINUX="brew install trivy"
 TOOL_TRIVY_CATEGORY="vulnerability"
@@ -57,7 +57,7 @@ TOOL_BANDIT_INSTALL_LINUX="pip3 install bandit"
 TOOL_BANDIT_CATEGORY="sast"
 
 # gosec — Go SAST
-TOOL_GOSEC_DOCKER="securego/gosec:v2.24.0"
+TOOL_GOSEC_DOCKER="securego/gosec:v2.24.7"
 TOOL_GOSEC_INSTALL_MACOS="brew install gosec"
 TOOL_GOSEC_INSTALL_LINUX="go install github.com/securego/gosec/v2/cmd/gosec@latest"
 TOOL_GOSEC_CATEGORY="sast"

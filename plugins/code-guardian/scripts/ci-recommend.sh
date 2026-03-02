@@ -285,7 +285,7 @@ GLEOF
           cat <<'GLTRIVYEOF'
 trivy:
   stage: security
-  image: aquasec/trivy:0.69.1
+  image: aquasec/trivy:0.69.2
   script:
     - trivy fs --format json --output trivy-results.json --severity CRITICAL,HIGH .
   artifacts:
