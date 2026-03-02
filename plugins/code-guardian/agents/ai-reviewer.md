@@ -136,7 +136,7 @@ Field rules:
 - `"tool"`: Always `"ai-review"`
 - `"severity"`: `"high"`, `"medium"`, or `"low"` — be conservative, default to `"medium"` unless clearly high impact
 - `"rule"`: One of the kebab-case rule names above (`auth-bypass`, `idor`, `race-condition`, `mass-assignment`, `data-leak`, `input-validation`, `business-logic`, `error-info-leak`)
-- `"message"`: Clear, specific description of the vulnerability. Include the affected endpoint/function and why it's a problem. Prefix with `[ai-review]` tag.
+- `"message"`: Clear, specific description of the vulnerability. Include the affected endpoint/function and why it's a problem.
 - `"file"`: Relative path to the affected file
 - `"line"`: Line number where the issue is (best estimate)
 - `"autoFixable"`: Always `false`
