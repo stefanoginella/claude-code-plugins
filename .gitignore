@@ -13,6 +13,7 @@ packages/*/LICENSE.md
 # TEMP
 tmp.md
 tmp/
+.code-guardian/
 
 # OS
 .DS_Store

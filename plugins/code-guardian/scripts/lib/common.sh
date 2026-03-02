@@ -56,10 +56,18 @@ CG_EXCLUDE_DIRS=(
   _bmad-output
 )
 
+# Join array elements with a delimiter
+# Usage: join_by ',' "${array[@]}"
+join_by() {
+  local d="$1"; shift
+  [[ $# -eq 0 ]] && return
+  local first="$1"; shift
+  printf '%s' "$first" "${@/#/$d}"
+}
+
 # Return exclusion dirs as a comma-separated string
 get_exclude_dirs_csv() {
-  local IFS=','
-  echo "${CG_EXCLUDE_DIRS[*]}"
+  join_by ',' "${CG_EXCLUDE_DIRS[@]}"
 }
 
 # Write exclusion patterns (one regex per line) to a temp file for tools
@@ -131,6 +139,10 @@ get_scoped_files() {
       ;;
     unpushed)
       if [[ -n "$base_ref" ]]; then
+        if ! [[ "$base_ref" =~ ^[a-zA-Z0-9_./@^~-]+$ ]]; then
+          log_error "Invalid base ref: $base_ref"
+          return 1
+        fi
         git diff "${base_ref}...HEAD" --name-only --diff-filter=ACMR 2>/dev/null
       else
         # Try origin/main, then origin/master

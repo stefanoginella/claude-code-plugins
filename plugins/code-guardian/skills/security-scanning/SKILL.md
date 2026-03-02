@@ -20,6 +20,7 @@ code-guardian is a deterministic security scanning plugin for Claude Code. It de
 3. `scan.sh` orchestrates running relevant scanners
 4. Each scanner outputs unified JSONL findings
 5. The `security-fixer` agent applies code-level fixes for findings that tools can't auto-fix
+6. The `ai-reviewer` agent analyzes code for business logic flaws, auth bypass, race conditions, and other vulnerabilities that pattern-based CLI tools miss
 
 ## Tool Reference
 
@@ -85,7 +86,7 @@ All scanners output JSONL with this schema:
   "file": "relative/path/to/file",
   "line": 42,
   "autoFixable": true,
-  "category": "sast|secrets|dependency|container|iac"
+  "category": "sast|secrets|dependency|container|iac|ai-review"
 }
 ```
 
@@ -100,3 +101,36 @@ For detailed fix patterns, see `references/fix-patterns.md`.
 | `codebase` | All tracked files |
 | `uncommitted` | All local uncommitted work (staged + unstaged + untracked) |
 | `unpushed` | All changes since diverging from base |
+
+## AI Security Review
+
+After CLI tools complete, the `ai-reviewer` agent automatically analyzes code for vulnerabilities that deterministic pattern-matching tools miss. This runs as a built-in pipeline step on every scan — no flags or configuration needed.
+
+### What It Catches
+
+The AI reviewer focuses on logic-level vulnerabilities:
+
+| Category | Rule | Examples |
+|----------|------|----------|
+| Auth/Authz Bypass | `auth-bypass` | Missing auth middleware, JWT validation gaps, privilege escalation |
+| IDOR | `idor` | User-supplied IDs without ownership checks, guessable identifiers |
+| Race Conditions | `race-condition` | TOCTOU bugs, non-atomic read-modify-write, double-spend |
+| Mass Assignment | `mass-assignment` | Unfiltered request body into ORM, modifiable hidden fields |
+| Data Leaks | `data-leak` | Secrets logged, sensitive data in responses, credentials in URLs |
+| Input Validation | `input-validation` | Missing validation on security-sensitive operations, type confusion |
+| Business Logic | `business-logic` | State machine errors, missing business rules, replay attacks |
+| Error Info Leaks | `error-info-leak` | Stack traces in responses, verbose DB errors, internal path exposure |
+
+### Scope Behavior
+
+- **uncommitted**: Reviews `git diff` + staged changes + untracked files
+- **unpushed**: Reviews `git diff <baseRef>...HEAD`
+- **codebase**: Reviews files already flagged by CLI tools plus high-risk pattern files (auth, middleware, routes, permissions) — capped at 20 files
+
+### Deduplication
+
+AI findings are deduplicated against CLI tool findings. If a CLI tool already reported an issue at the same file and line, the AI reviewer skips it. Only high-confidence findings are emitted.
+
+### Finding Format
+
+AI findings use `"tool": "ai-review"` and `"category": "ai-review"` in the unified JSONL format. They appear in the scan report tagged with `[ai-review]` and are included in the Per-Tool Breakdown and By Category tables.

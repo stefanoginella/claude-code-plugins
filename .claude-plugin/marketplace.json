@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "auto-bmad",
-      "description": "Automated and opinionated BMAD pipeline orchestration: plan, epic-start, story, and epic-end workflows with configurable safe-bash auto-approval.",
+      "description": "Automated and opinionated BMAD pipeline orchestration: plan, epic-start, story, and epic-end workflows.",
       "source": "./plugins/auto-bmad",
       "category": "development"
     },

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-const { execSync, execFileSync } = require("child_process");
+const { execFileSync } = require("child_process");
 const { createInterface } = require("readline");
 
 const PLUGIN_NAME = "code-guardian";
@@ -14,8 +14,8 @@ const YELLOW = noColor ? "" : "\x1b[33m";
 const BOLD = noColor ? "" : "\x1b[1m";
 const RESET = noColor ? "" : "\x1b[0m";
 
-function run(cmd, opts = {}) {
-  return execSync(cmd, { stdio: "inherit", ...opts });
+function run(args, opts = {}) {
+  return execFileSync(args[0], args.slice(1), { stdio: "inherit", ...opts });
 }
 
 function claudeExists() {
@@ -48,7 +48,7 @@ async function main() {
   if (process.argv.includes("--uninstall")) {
     console.log(`Uninstalling ${PLUGIN_NAME}...`);
     try {
-      run(`claude plugin uninstall "${PLUGIN_NAME}@${MARKETPLACE}"`);
+      run(["claude", "plugin", "uninstall", `${PLUGIN_NAME}@${MARKETPLACE}`]);
       console.log(`${GREEN}${PLUGIN_NAME} uninstalled.${RESET}`);
     } catch {
       console.log(`${PLUGIN_NAME} is not installed.`);
@@ -74,12 +74,12 @@ async function main() {
 
   // Add marketplace (idempotent)
   console.log(`Adding marketplace ${MARKETPLACE_REPO}...`);
-  try { run(`claude plugin marketplace add "${MARKETPLACE_REPO}"`, { stdio: "pipe" }); } catch {}
+  try { run(["claude", "plugin", "marketplace", "add", MARKETPLACE_REPO], { stdio: "pipe" }); } catch {}
 
   // Install plugin
   console.log("Installing plugin...");
   try {
-    run(`claude plugin install "${PLUGIN_NAME}@${MARKETPLACE}" --scope ${scope}`);
+    run(["claude", "plugin", "install", `${PLUGIN_NAME}@${MARKETPLACE}`, "--scope", scope]);
     console.log();
     console.log(`${GREEN}${BOLD}${PLUGIN_NAME} installed successfully.${RESET}`);
     console.log();

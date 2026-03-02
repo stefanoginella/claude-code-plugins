@@ -103,7 +103,7 @@ scripts/
 ## What Can Be Contributed
 
 - **Command improvements** (`plugins/<name>/commands/`) — Pipeline step changes, new skip conditions, better prompts
-- **Hook improvements** (`plugins/<name>/hooks/`) — Safe-bash prefix list updates, new hook scripts, new hook types
+- **Hook improvements** (`plugins/<name>/hooks/`) — New hook scripts, new hook types
 - **Manifest updates** (`plugins/<name>/.claude-plugin/plugin.json`) — Version bumps, metadata
 - **Documentation** — README, CONTRIBUTING, examples
 - **New plugins** — Add a new plugin under `plugins/`, register it in `.claude-plugin/marketplace.json`, and optionally add an npm companion package under `packages/`
@@ -129,7 +129,6 @@ If you're modifying or extending the pipelines, be aware of these conventions:
 - Skip conditions should be evaluated by the coordinator before launching a Task
 - Use `${CLAUDE_PLUGIN_ROOT}` in hook scripts for path portability
 - Test changes against a real BMAD project before submitting
-- When adding entries to the safe-bash list in `approve-safe-bash.sh`, use exact matches for bare commands and prefix matches (with trailing space) for commands that take arguments
 
 ## License
 

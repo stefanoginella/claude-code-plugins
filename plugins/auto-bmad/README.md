@@ -4,7 +4,7 @@
 
 Automated (and very opinionated) BMAD pipeline orchestration for Claude Code.
 
-Four sequential pipeline commands that drive the BMAD software development lifecycle — from planning through story delivery — plus a safe-bash auto-approval hook for frictionless autonomous execution.
+Four sequential pipeline commands that drive the BMAD software development lifecycle — from planning through story delivery.
 
 > 👀 The pipelines are quite long and token hungry (the story pipeline alone can run for more than 60 minutes). Some steps might seem redundant, but I am satisfied with the code quality and consistency I get out of this. I recommend having a Claude Code Max x5 or x20 subscription to not hit limits mid-run.
 
@@ -87,14 +87,12 @@ The pipelines are based on the [BMAD Method](https://github.com/bmad-code-org/BM
 From the [`anthropics/claude-plugins-official`](https://github.com/anthropics/claude-plugins-official) marketplace.
 
 - **context7** — Live documentation lookups for library APIs. Used during architecture creation (plan) and story development (story). Without it, agents rely on training data instead of current docs.
-- **semgrep** — Security scanning in the story pipeline. Without it, the security scan step is skipped.
 - **security-guidance** — Security best practice recommendations during story development.
 - Any relevant `lsp` plugin(s) for your codebase — used during story development for linting and test feedback. They can improve the code quality and feedback loop, but are not strictly required since the pipelines also include manual lint and test steps.
 
 ### Required and optional CLI tools
 
-- `jq` (required) - JSON processing in bash steps. Needed by the pipelines and the safe bash auto-approval hook.
-- `semgrep` (optional) - security scanning. Needed if you have the semgrep plugin and want to run the security scan step in the story pipeline.
+- `jq` (required) - JSON processing in bash steps. Needed by the pipelines.
 - Any relevant CLI tool (optional) needed by your LSP plugin(s).
 
 ### Project Requirements
@@ -106,51 +104,12 @@ The pipelines expect BMAD configuration files in the project:
 
 These files are normally created by the BMAD CLI when initializing BMAD in a project. The pipelines rely on the standard structure and paths defined by these configs, so custom configurations may require pipeline adjustments.
 
-## 🔒 Hooks
-
-### Safe Bash Auto-Approval (PreToolUse)
-
-Auto-approves bash commands matching a known-safe and non-destructive prefix list to reduce false-positive sandbox prompts during autonomous pipeline execution. This is a lightweight heuristic, not a full sandbox bypass.
-
-**Default safe list:**
-
-| Group | Match | Commands |
-|-------|-------|----------|
-| **Git** | Exact | `git diff` · `git fetch` · `git log` · `git status` |
-| | Prefix | `git -C` · `git add` · `git commit` · `git diff` · `git diff-tree` · `git fetch` · `git log` · `git rev-parse` · `git show` · `git status` · `git tag` |
-| **Docker & Compose** | Exact | `docker compose build` · `docker compose config` · `docker compose down` · `docker compose images` · `docker compose logs` · `docker compose ls` · `docker compose ps` · `docker compose pull` · `docker compose top` · `docker compose up` · `docker compose version` · `docker images` · `docker ps` · `docker version` |
-| | Prefix | `docker compose build` · `docker compose config` · `docker compose exec` · `docker compose logs` · `docker compose ps` · `docker compose pull` · `docker compose top` · `docker compose up` · `docker inspect` · `docker logs` · `docker ps` |
-| **File reading** | Prefix | `cat` · `file` · `head` · `stat` · `tail` · `wc` |
-| **File system** | Prefix | `chmod` · `cp` · `mkdir` · `mv` · `touch` |
-| **Search & filtering** | Prefix | `find` · `grep` · `sort` · `uniq` |
-| **Text processing** | Prefix | `awk` · `cut` · `diff` · `echo` · `jq` · `sed` · `tr` |
-| **Path utilities** | Prefix | `basename` · `dirname` · `realpath` |
-| **Directory listing** | Exact | `ls` · `pwd` · `tree` |
-| | Prefix | `ls` · `tree` |
-| **System & environment** | Exact | `date` · `uname` |
-| | Prefix | `date` · `du` · `timeout` · `uname` · `which` |
-| **Security scanning** | Prefix | `semgrep` |
-
-**Customizing the safe list:** Create `.claude/auto-bmad-safe-prefixes.txt` in your project to add entries without modifying the plugin:
-
-```
-# Lines starting with "= " are exact matches (bare commands)
-# All other lines are prefix matches (must end with a trailing space)
-# Empty lines and comments (#) are ignored
-
-= docker compose restart
-npm install
-npx vitest
-```
-
 ## 🔐 Permissions
 
-The pipelines run various bash commands (depending on the project), skills and MCP that Claude Code will prompt you to approve if they are not already approved.
+The pipelines run various bash commands (depending on the project), skills and MCP that Claude Code will prompt you to approve if they are not already approved. For the first few runs in a new project, expect several approval prompts as the allow list builds up. After that, things stabilize and the pipelines run more autonomously.
 
-Many bash commands are already pre-approved by the safe bash auto-approval hook, but some might still require manual approval, especially if you have custom steps or a unique project setup that involves commands not in the default safe list. For the first few runs in a new project, expect several approval prompts as the allow list builds up. After that, things stabilize and the pipelines run fully autonomously.
-
-> ⚠️ Alternatively, you can run Claude Code in "dangerously skip permissions" mode (`--dangerously-skip-permissions`), but do so at your own risk — this disables **all** permission checks, not just the ones above. Only use it in an isolated environment like a VM or container.
+> ⚠️ Alternatively, you can run Claude Code in "dangerously skip permissions" mode (`--dangerously-skip-permissions`), but do so at your own risk — this disables **all** permission checks. Only use it in an isolated environment like a VM or container.
 
 ## 📄 License
 
-[MIT](../../LICENSE)
+MIT

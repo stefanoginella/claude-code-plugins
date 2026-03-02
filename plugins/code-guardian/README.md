@@ -8,7 +8,7 @@ Deterministic security scanning layer for Claude Code.
 
 Auto-detects your project's tech stack and runs appropriate open-source CLI tools (SAST, secret detection, dependency auditing, container and IaC scanning) to find and fix vulnerabilities. Every tool is free for private repositories, prefers local binaries, and produces a unified findings format so Claude can process results consistently. Docker is available as an opt-in fallback with pinned versions, read-only mounts, and network isolation. Two modes: **interactive** (review findings and choose what to fix) or **yolo** (auto-fix everything possible, then let Claude handle the rest).
 
-> 🔧 The plugin ships 18 scanner wrappers and 4 orchestration scripts. The actual security analysis is deterministic (real CLI tools, not AI guessing) — Claude orchestrates the flow and handles the code-level fixes that tools can't auto-fix.
+> 🔧 The plugin ships 18 scanner wrappers and 4 orchestration scripts. The deterministic layer runs real CLI tools for known vulnerability patterns. After CLI tools finish, an AI reviewer automatically analyzes the code for business logic flaws, auth bypass, race conditions, and other issues that no scanner has rules for. You get both in one unified workflow.
 
 ## 🚀 Commands
 
@@ -91,6 +91,14 @@ Auto-fixes everything possible:
 3. Re-scans to verify fixes
 4. Reports final status: what was fixed, what remains
 
+## 🤖 AI Security Review
+
+After CLI tools finish, an AI-powered reviewer automatically analyzes your code for vulnerabilities that pattern-based scanners miss. This runs on every scan as a built-in pipeline step — no flags needed.
+
+**What it catches:** auth/authz bypass, IDOR, race conditions, mass assignment, insecure data flows, input validation gaps, business logic flaws, and error information leaks.
+
+**How it works:** The AI reviewer reads the code in scope (diffs for scoped scans, hotspot files for codebase scans), cross-references against existing CLI findings to avoid duplicates, and emits only high-confidence findings. Results appear in the same report, tagged `[ai-review]`, under the standard severity headings.
+
 ## 🧰 Supported Tools
 
 All tools are free, open-source, and work on private repositories with no limitations.
@@ -167,7 +175,7 @@ Local installation is the primary execution method. Docker fallback is available
 ```
 code-guardian/
 ├── commands/              # Slash commands (scan, setup, ci)
-├── agents/                # security-fixer agent for AI-assisted remediation
+├── agents/                # AI agents (security-fixer for remediation, ai-reviewer for logic-level review)
 ├── skills/                # Security scanning knowledge base
 │   └── security-scanning/
 │       ├── SKILL.md
@@ -242,4 +250,4 @@ The scan command runs bash scripts that invoke Docker or local CLI tools. Claude
 
 ## 📄 License
 
-[MIT](../../LICENSE)
+[MIT]

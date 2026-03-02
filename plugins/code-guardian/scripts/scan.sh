@@ -60,13 +60,13 @@ done
 # Parse --tools into an array for filtering
 only_filter=()
 if [[ -n "$ONLY_TOOLS" ]]; then
-  IFS=',' read -ra only_filter <<< "$ONLY_TOOLS"
+  while IFS= read -r t; do [[ -n "$t" ]] && only_filter+=("$t"); done < <(tr ',' '\n' <<< "$ONLY_TOOLS")
 fi
 
 # Parse disabled tools into an array
 disabled_filter=()
 if [[ -n "$DISABLED_TOOLS" ]]; then
-  IFS=',' read -ra disabled_filter <<< "$DISABLED_TOOLS"
+  while IFS= read -r t; do [[ -n "$t" ]] && disabled_filter+=("$t"); done < <(tr ',' '\n' <<< "$DISABLED_TOOLS")
 fi
 
 if [[ -z "$STACK_JSON" ]] || ! [[ -f "$STACK_JSON" ]]; then
@@ -94,7 +94,7 @@ if [[ "$SCOPE" != "codebase" ]]; then
   log_info "Files in scope: $file_count"
   if [[ "$file_count" -eq 0 ]]; then
     log_ok "No files in scope — nothing to scan"
-    echo "{\"scanDir\":\"$SCAN_OUTPUT_DIR\",\"findings\":[],\"summaries\":[],\"scope\":\"$SCOPE\",\"fileCount\":0}"
+    python3 -c "import json,sys; print(json.dumps({'scanDir':sys.argv[1],'findings':[],'summaries':[],'scope':sys.argv[2],'fileCount':0}))" "$SCAN_OUTPUT_DIR" "$SCOPE"
     exit 0
   fi
 fi
@@ -333,10 +333,10 @@ REPORT_FILE=$(
     --findings-file "$MERGED_FILE" \
     --scope "$SCOPE" \
     --base-ref "$BASE_REF" \
-    --scanners-run "$(IFS=','; echo "${scanners_to_run[*]}")" \
-    --skipped-scanners "$(IFS=','; echo "${SKIPPED_SCANNERS[*]+"${SKIPPED_SCANNERS[*]}"}")" \
-    --scope-skipped-scanners "$(IFS=','; echo "${SCOPE_SKIPPED_SCANNERS[*]+"${SCOPE_SKIPPED_SCANNERS[*]}"}")" \
-    --failed-scanners "$(IFS=','; echo "${FAILED_SCANNERS[*]+"${FAILED_SCANNERS[*]}"}")" \
+    --scanners-run "$(join_by ',' "${scanners_to_run[@]}")" \
+    --skipped-scanners "$(join_by ',' "${SKIPPED_SCANNERS[@]+"${SKIPPED_SCANNERS[@]}"}")" \
+    --scope-skipped-scanners "$(join_by ',' "${SCOPE_SKIPPED_SCANNERS[@]+"${SCOPE_SKIPPED_SCANNERS[@]}"}")" \
+    --failed-scanners "$(join_by ',' "${FAILED_SCANNERS[@]+"${FAILED_SCANNERS[@]}"}")" \
     --summaries-json "$summaries_json" \
     --total "$total" --high "$high" --medium "$medium" --low "$low" \
     --timestamp "$SCAN_TIMESTAMP" \
@@ -346,36 +346,40 @@ if [[ -n "$REPORT_FILE" ]]; then
   log_info "Scan report saved: $REPORT_FILE"
 fi
 
-# Build skipped/failed scanners JSON arrays
-skipped_json="[]"
-if [[ ${#SKIPPED_SCANNERS[@]} -gt 0 ]]; then
-  skipped_json=$(printf '["%s"]' "$(IFS='","'; echo "${SKIPPED_SCANNERS[*]}")")
-fi
-scope_skipped_json="[]"
-if [[ ${#SCOPE_SKIPPED_SCANNERS[@]} -gt 0 ]]; then
-  scope_skipped_json=$(printf '["%s"]' "$(IFS='","'; echo "${SCOPE_SKIPPED_SCANNERS[*]}")")
-fi
-failed_json="[]"
-if [[ ${#FAILED_SCANNERS[@]} -gt 0 ]]; then
-  failed_json=$(printf '["%s"]' "$(IFS='","'; echo "${FAILED_SCANNERS[*]}")")
-fi
-
-cat <<EOF
-{
-  "scanDir": "$SCAN_OUTPUT_DIR",
-  "findingsFile": "$MERGED_FILE",
-  "reportFile": "$REPORT_FILE",
-  "scope": "$SCOPE",
-  "baseRef": "$BASE_REF",
-  "autofix": $AUTOFIX,
-  "totalFindings": $total,
-  "high": $high,
-  "medium": $medium,
-  "low": $low,
-  "scannersRun": $(printf '["%s"]' "$(IFS='","'; echo "${scanners_to_run[*]}")"),
-  "skippedScanners": $skipped_json,
-  "scopeSkippedScanners": $scope_skipped_json,
-  "failedScanners": $failed_json,
-  "summaries": $summaries_json
+# Build JSON array from bash array: ("a" "b") → ["a","b"]
+_json_array() {
+  if [[ $# -eq 0 ]]; then echo "[]"; return; fi
+  printf '['; local first=true
+  for item in "$@"; do
+    $first && first=false || printf ','
+    printf '"%s"' "$item"
+  done; printf ']'
 }
-EOF
+
+skipped_json=$(_json_array "${SKIPPED_SCANNERS[@]+"${SKIPPED_SCANNERS[@]}"}")
+scope_skipped_json=$(_json_array "${SCOPE_SKIPPED_SCANNERS[@]+"${SCOPE_SKIPPED_SCANNERS[@]}"}")
+failed_json=$(_json_array "${FAILED_SCANNERS[@]+"${FAILED_SCANNERS[@]}"}")
+
+python3 -c "
+import json, sys
+print(json.dumps({
+  'scanDir': sys.argv[1],
+  'findingsFile': sys.argv[2],
+  'reportFile': sys.argv[3],
+  'scope': sys.argv[4],
+  'baseRef': sys.argv[5],
+  'autofix': sys.argv[6] == 'true',
+  'totalFindings': int(sys.argv[7]),
+  'high': int(sys.argv[8]),
+  'medium': int(sys.argv[9]),
+  'low': int(sys.argv[10]),
+  'scannersRun': json.loads(sys.argv[11]),
+  'skippedScanners': json.loads(sys.argv[12]),
+  'scopeSkippedScanners': json.loads(sys.argv[13]),
+  'failedScanners': json.loads(sys.argv[14]),
+  'summaries': json.loads(sys.argv[15]),
+}, indent=2))
+" "$SCAN_OUTPUT_DIR" "$MERGED_FILE" "$REPORT_FILE" "$SCOPE" "$BASE_REF" \
+  "$AUTOFIX" "$total" "$high" "$medium" "$low" \
+  "$(_json_array "${scanners_to_run[@]}")" \
+  "$skipped_json" "$scope_skipped_json" "$failed_json" "$summaries_json"

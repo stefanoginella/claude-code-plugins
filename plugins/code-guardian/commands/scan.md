@@ -75,6 +75,49 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/scan.sh \
 
 Pass `--tools` if the user passed `--tools`.
 
+### Step 3b: AI Security Review
+
+After CLI tools complete, run the AI reviewer to catch business logic vulnerabilities that deterministic tools miss.
+
+1. Set the AI findings output path:
+   ```
+   AI_FINDINGS="${scanDir}/ai-review-findings.jsonl"
+   ```
+   (where `scanDir` is the `scanDir` value from the scan.sh JSON output)
+
+2. Invoke the **ai-reviewer** agent with:
+   - `scope` — the scan scope (codebase, uncommitted, unpushed)
+   - `baseRef` — the base reference (if scope is unpushed)
+   - `findingsFile` — path to the merged findings file (`all-findings.jsonl` from scan output)
+   - `outputFile` — the `AI_FINDINGS` path above
+
+3. If the AI findings file exists and is non-empty:
+   a. Append AI findings to the merged findings file:
+      ```bash
+      cat "$AI_FINDINGS" >> "$FINDINGS_FILE"
+      ```
+   b. Recount severities from the merged file using python3:
+      ```bash
+      python3 -c "
+      import json, sys
+      counts = {'high':0,'medium':0,'low':0}
+      with open(sys.argv[1]) as f:
+          for line in f:
+              line = line.strip()
+              if not line: continue
+              try:
+                  sev = json.loads(line).get('severity','').lower()
+                  if sev in counts: counts[sev] += 1
+              except: pass
+      total = sum(counts.values())
+      print(json.dumps({'total':total, **counts}))
+      " "$FINDINGS_FILE"
+      ```
+   c. Build an updated summaries JSON array — add an `ai-review` entry with the AI finding counts to the existing summaries array from scan.sh output
+   d. Re-run generate-report.sh with `--report-file <existing report path>` and the updated severity counts and summaries to regenerate the report with AI findings included
+
+4. If the AI findings file is empty or does not exist, note: "AI review completed — no additional findings."
+
 ### Step 4: Process Results
 
 Read the findings file from the scan output (each line is a JSON finding with: tool, severity, rule, message, file, line, autoFixable, category).
@@ -138,6 +181,7 @@ Always end with these sections:
    > Run `/code-guardian:code-guardian-setup` to see all tool status.
 5. **CI recommendation** — if no CI security scanning detected, suggest `/code-guardian:code-guardian-ci`
 6. **Scan report** — tell the user a detailed report was saved to disk (the path is in the `reportFile` field of the scan output JSON). All detected findings are always listed as `- [ ]` checkbox items regardless of mode. Example: "A detailed report has been saved to `<reportFile>`. Each finding is a checkbox you can mark off as you fix it."
+7. **AI review results** — report how many AI review findings were found and which categories they fall into (e.g., "AI review found 3 additional findings: 2 auth-bypass, 1 race-condition"). If no AI findings, note that the AI review completed cleanly.
 
 ## Scope & Dependency Scanners
 
