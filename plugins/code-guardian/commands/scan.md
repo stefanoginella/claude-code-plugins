@@ -31,7 +31,7 @@ Parse from `$ARGUMENTS`:
 
 Config values (`tools`, `scope`) are loaded automatically by scan.sh. CLI args override them.
 
-If scope is not provided via CLI, scan.sh uses the config `scope` value, falling back to `codebase`. Do NOT ask the user for scope — just proceed with the default. If the user passed `--scope unpushed` without a base ref, ask with AskUserQuestion: "Compare against which base?" — default branch, remote tracking branch, or custom ref.
+If scope is not provided via CLI, scan.sh uses the config `scope` value, falling back to `codebase`. Do NOT ask the user for scope — just proceed with the default. If the user passed `--scope unpushed` without a base ref, ask the user: "Compare against which base?" — default branch, remote tracking branch, or custom ref.
 
 ### Step 2: Detect Stack & Tools
 

@@ -98,17 +98,21 @@ If a config file exists (`.claude/code-guardian.config.json`), display the curre
 If no config file exists, tell the user:
 > Configuration: No configuration file found. Using defaults (all available tools, full codebase scope).
 
-Then tell the user they're all set and can run `/code-guardian:scan` anytime. Do NOT ask the user whether they want to configure — just end here. If they want to customize defaults later, they can re-run `/code-guardian:setup --configure`.
+Then tell the user they're all set and can run `/code-guardian:scan` anytime. Do NOT ask the user whether they want to configure — just end here and STOP. If they want to customize defaults later, they can re-run `/code-guardian:setup --configure`.
 
-### Step 7: Configure Scan Defaults (only if `--configure` was passed in `$ARGUMENTS`)
+### Step 7: Configure Scan Defaults (only if `--configure` was passed as argument)
 
-If `--configure` is present in `$ARGUMENTS`, ask the user with AskUserQuestion (multi-select): "Which tools do you want to run by default?" — list all available tools as options. Based on the answer, determine the config:
+Check the value of `$ARGUMENTS` (which has been substituted below). If it equals `--configure`, proceed with this step. If `$ARGUMENTS` is empty or contains anything else, SKIP this entire step — do NOT ask any configuration questions.
+
+Current arguments: `$ARGUMENTS`
+
+If the arguments match `--configure`, ask the user: "Which tools do you want to run by default?" — list all available tools as individual options (e.g. "semgrep", "gitleaks", "trufflehog", etc. — one option per tool). Based on the answer, determine the config:
 - If the user selected ALL available tools → don't set `tools` (default runs everything)
 - If the user selected a subset → set `tools` to that list
 
-Then AskUserQuestion (multi-select): "What scope do you want to scan by default?" — options: "entire codebase" (default) sets `scope: "codebase"`, "only uncommitted changes" sets `scope: "uncommitted"`, "only unpushed commits" sets `scope: "unpushed"`.
+Then ask the user: "What scope do you want to scan by default?" — options: "entire codebase" (default) sets `scope: "codebase"`, "only uncommitted changes" sets `scope: "uncommitted"`, "only unpushed commits" sets `scope: "unpushed"`.
 
-Then AskUserQuestion (multi-select): "Enable Docker fallback?" — explain that this allows Docker images to be used for tools not installed locally, with hardened security controls (pinned versions, read-only mounts, network isolation where possible). Options: "No" (default) sets `dockerFallback: false`, "Yes": `dockerFallback: true`
+Then ask the user (multi-select): "Enable Docker fallback?" — explain that this allows Docker images to be used for tools not installed locally, with hardened security controls (pinned versions, read-only mounts, network isolation where possible). Options: "No" (default) sets `dockerFallback: false`, "Yes": `dockerFallback: true`
 
 Write the config file `.claude/code-guardian.config.json`:
 
