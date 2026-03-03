@@ -85,13 +85,13 @@ After each successful step, the coordinator runs `git add -A && git commit --no-
 ## Code Reviews
 
 5. **Story {{STORY_ID}} Code Review #1**
-   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues.`
+   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues. Before fixing any finding, verify it is a genuine defect with concrete evidence (file:line) — do not fix style preferences, hypothetical concerns, or findings that lack implementation proof. After fixing, ensure the story file's Dev Agent Record is updated with all findings and resolutions from this review pass.`
 
 6. **Story {{STORY_ID}} Code Review #2**
-   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues.`
+   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues. Before fixing any finding, verify it is a genuine defect with concrete evidence (file:line) — do not fix style preferences, hypothetical concerns, or findings that lack implementation proof. After fixing, ensure the story file's Dev Agent Record is updated with all findings and resolutions from this review pass.`
 
 7. **Story {{STORY_ID}} Code Review #3**
-   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues.`
+   - **Task prompt:** `/bmad-bmm-code-review {{STORY_FILE}} yolo — fix all critical, high, medium and low issues. Before fixing any finding, verify it is a genuine defect with concrete evidence (file:line) — do not fix style preferences, hypothetical concerns, or findings that lack implementation proof. After fixing, ensure the story file's Dev Agent Record is updated with all findings and resolutions from this review pass.`
 
 ## NFR Gate
 
