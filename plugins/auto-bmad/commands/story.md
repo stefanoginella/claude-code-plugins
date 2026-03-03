@@ -75,7 +75,7 @@ After each successful step, the coordinator runs `git add -A && git commit --no-
 ## Test-First
 
 3. **Story {{STORY_ID}} ATDD**
-   - **Task prompt:** `/bmad-tea-testarch-atdd {{STORY_FILE}} yolo — follow the test pyramid: prefer API-level and integration-level acceptance tests over E2E. Only create E2E tests for acceptance criteria that genuinely require full browser interaction (UI-specific flows). Generate unit tests for business logic criteria. Target a single browser (Chromium) for any E2E tests.`
+   - **Task prompt:** `/bmad-tea-testarch-atdd {{STORY_FILE}} yolo — follow the test pyramid: prefer API-level and integration-level acceptance tests over E2E. Only create E2E tests for acceptance criteria that genuinely require full browser interaction (UI-specific flows). Generate unit tests for business logic criteria. Target a single browser (Chromium) for any E2E tests. Your scope is strictly TDD red phase: generate failing acceptance tests ONLY. Do not create or modify any production code, API routes, UI components, database schemas, or application logic — implementation is the Dev step's job.`
 
 ## Development
 
