@@ -1,8 +1,20 @@
-plugins/
+# BMAD
 _bmad/
 _bmad-output/
+
+# Plugin files
+plugins/
+
+# Claude files
 .claude
 CLAUDE.md
+
+# OS
 .DS_Store
+
+# Temporary files
 tmp.md
 tmp/
+
+# Code Guardian scan results
+.code-guardian/

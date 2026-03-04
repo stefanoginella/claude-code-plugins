@@ -8,6 +8,8 @@ I'm a freelance developer exploring what AI-assisted development can actually lo
 
 ## Available Plugins
 
+> This repository serves as a marketplace for multiple plugins. Each plugin is developed and maintained in its own repository, but they are all listed here for easy discovery and installation.
+
 | Plugin | Description | Repo |
 |--------|-------------|------|
 | auto-bmad | Automated and opinionated BMAD pipeline orchestration | [stefanoginella/auto-bmad](https://github.com/stefanoginella/auto-bmad) |
