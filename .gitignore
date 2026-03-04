@@ -1,20 +1,8 @@
-# BMAD
+plugins/
 _bmad/
 _bmad-output/
-
-# AI
 .claude
 CLAUDE.md
-
-# NPM package build artifacts
-packages/*/README.md
-packages/*/LICENSE.md
-
-# TEMP
+.DS_Store
 tmp.md
 tmp/
-.code-guardian/
-
-# OS
-.DS_Store
-Thumbs.db

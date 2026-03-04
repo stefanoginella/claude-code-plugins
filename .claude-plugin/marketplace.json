@@ -1,7 +1,7 @@
 {
   "name": "stefanoginella-plugins",
-  "version": "1.0.4",
-  "description": "Collection of opinionated Claude Code plugins — built by a solo dev for solo devs. Check check https://github.com/stefanoginella/claude-code-plugins/ for details.",
+  "version": "2.0.0",
+  "description": "Collection of opinionated Claude Code plugins by Stefano Ginella.",
   "owner": {
     "name": "Stefano Ginella",
     "email": "stefano+ccplugins@stefanoginella.com"
@@ -10,13 +10,19 @@
     {
       "name": "auto-bmad",
       "description": "Automated and opinionated BMAD pipeline orchestration: plan, epic-start, story, and epic-end workflows.",
-      "source": "./plugins/auto-bmad",
+      "source": {
+        "source": "github",
+        "repo": "stefanoginella/auto-bmad"
+      },
       "category": "development"
     },
     {
       "name": "code-guardian",
       "description": "[EXPERIMENTAL] Deterministic + AI security scanning layer for Claude Code.",
-      "source": "./plugins/code-guardian",
+      "source": {
+        "source": "github",
+        "repo": "stefanoginella/code-guardian"
+      },
       "category": "security"
     }
   ]
