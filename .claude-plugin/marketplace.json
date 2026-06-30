@@ -1,0 +1,18 @@
+{
+  "name": "stefanoginella-plugins",
+  "description": "Personal Claude Code plugin marketplace by Stefano Ginella.",
+  "owner": {
+    "name": "Stefano Ginella",
+    "url": "https://www.stefanoginella.com"
+  },
+  "plugins": [
+    {
+      "name": "aicontainer-setup",
+      "source": {
+        "source": "git-subdir",
+        "url": "https://github.com/stefanoginella/aicontainer.git",
+        "path": "tools/claude-plugin"
+      }
+    }
+  ]
+}
