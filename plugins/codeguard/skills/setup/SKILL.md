@@ -104,7 +104,11 @@ config, security/supply-chain tooling, governance files, and any existing
 `CLAUDE.md` — the checklist is in `references/stack-detection.md`.
 
 For each thing you find, decide: solid, partial, or misconfigured? What's
-missing? This becomes the add / change / leave-as-is split in the proposal.
+missing? Also check the reverse: a safeguard aimed at a stack component
+that no longer exists (a ruff hook in a repo that has since dropped
+Python) is stale — propose removing it if it carries the codeguard
+marker, flag it for the user's call if it's theirs. This becomes the
+add / change / remove / leave-as-is split in the proposal.
 
 ### 3. Build the proposal
 
@@ -124,7 +128,8 @@ repo. Then work out the mechanics:
 
 Present the plan so it can actually be judged:
 
-- **What** changes, by exact path, grouped as add / change / leave-as-is.
+- **What** changes, by exact path, grouped as add / change / remove /
+  leave-as-is.
 - **Why** each safeguard is there — tie it to quality, security,
   maintainability, or a specific slop pattern. One line each; if you can't
   justify a check that tightly, drop it from the proposal.

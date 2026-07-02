@@ -59,7 +59,9 @@ a wrong guess here poisons the entire downstream proposal.
 ## 4. Existing-safeguards inventory checklist
 
 Look for all of these before proposing anything — the goal is
-add/change/leave-as-is, not a blind rebuild:
+add/change/remove/leave-as-is, not a blind rebuild. Check both
+directions: gaps the current stack leaves uncovered, and stale
+safeguards aimed at a stack component that's since been removed:
 
 **Git hooks**
 - `.husky/`, `lefthook.yml`/`lefthook.yaml`, `.pre-commit-config.yaml`,
@@ -121,9 +123,14 @@ community open-source:
   "not shipped" signal), how many people show up in recent commit history,
   and simply what the user has told you about the project.
 
+Note the **contributor count** while classifying (recent commit history
+is the signal above) — it gates the tier-5 review-enforcement items
+independently of purpose, per `references/safeguards-catalog.md`.
+
 When the signals conflict or are thin, **ask** rather than assume the
 higher- or lower-stakes reading. And regardless of tier: **never write
 anyone's contact details** (an email in `SECURITY.md`, a name in
-`CODEOWNERS`) into a generated file without their explicit opt-in — a
-governance template with a placeholder is fine, silently populating it from
-git config is not.
+`CODEOWNERS`) into a generated file without their explicit opt-in —
+`SECURITY.md` defaults to a contact-free reporting channel with no email
+at all, and an address appears only when the user chooses one. Silently
+populating anything from git config is never OK.

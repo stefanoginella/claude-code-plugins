@@ -94,18 +94,33 @@ AI-generated code, not just generic bugs.
 
 Scale with the classification from `references/stack-detection.md` §6 —
 these matter far more for a public/commercial/community repo than a
-personal one.
+personal one. Contributor count gates this tier independently of
+purpose: the review-enforcement items (`CODEOWNERS`, required reviews)
+only do anything when someone other than the author can review, so on a
+solo repo — even a commercial one — propose only the solo-viable subset
+(required status checks, force-push protection, `SECURITY.md`) and note
+that the rest activates when a second regular contributor arrives.
 
 - **`CODEOWNERS`** — require review from the right people on the right
-  paths. Needs real names/teams; never fabricate them.
+  paths. Needs real names/teams; never fabricate them. Meaningful only
+  with a second regular contributor: platforms don't count self-approval
+  toward a required review, so on a solo repo this either blocks every
+  merge or trains the user to bypass it — defer it; it's a two-minute
+  file to add when someone joins.
 - **Branch protection** (required reviews, required status checks, no
   force-push to main). This needs repo-admin access on the hosting
   platform — codeguard can't set it from the repo's filesystem, so surface
   it as a "your turn" item with the exact settings to enable, not
-  something this run finishes unassisted.
-- **`SECURITY.md`** with a disclosure process. Only include contact
-  details the user explicitly approves — never scrape an email from git
-  config into a public file.
+  something this run finishes unassisted. Required status checks and
+  force-push protection are worth it at any team size — they guard
+  against the author's own mistakes; required reviews need a second
+  contributor, for the same self-approval reason as `CODEOWNERS`.
+- **`SECURITY.md`** with a disclosure process. Default to **no email at
+  all**: point reporting at a contact-free channel (GitHub's private
+  vulnerability reporting, or the hosting platform's equivalent) and
+  offer the user the option of adding an address of their choosing. An
+  email appears only if the user explicitly provides one — never scrape
+  it from git config, commit history, or anywhere else.
 - **PR/issue templates** — worth proposing once a repo has more than one
   regular contributor.
 
@@ -149,7 +164,9 @@ A reasonable default shape:
   if the team leans on Claude Code heavily.
 - **Commercial product or community OSS**: all tiers, with tier 5
   governance items surfaced even where they need the user's hands (branch
-  protection, `CODEOWNERS`).
+  protection, `CODEOWNERS`). On a solo repo, trim tier 5 to its
+  solo-viable subset per that tier's note — the classification sets the
+  ceiling, contributor count decides how much of it is live today.
 
 Always let the user's stated priorities override this default — the
 classification is a starting point for the proposal, not a rule to enforce

@@ -1,7 +1,7 @@
 {
   "name": "codeguard",
   "description": "Detect a repo's tech stack and set up tailored quality & security safeguards — git hooks, CI, secret/SAST/dependency scanning, and coding standards baked into agent instructions — to prevent AI-generated slop and enforce best practices.",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "author": {
     "name": "Stefano Ginella",
     "url": "https://www.stefanoginella.com"

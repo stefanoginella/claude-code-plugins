@@ -83,8 +83,9 @@ Setup is an interactive, approval-gated flow — not a one-shot generator:
 **detect → confirm → propose → approve → set up → verify**
 
 It detects the stack and runtime environment, inventories what already
-exists, and presents a tailored plan — add / change / leave-as-is, with a
-one-line "why" and the cost of every item — before writing a single file.
+exists, and presents a tailored plan — add / change / remove /
+leave-as-is, with a one-line "why" and the cost of every item — before
+writing a single file.
 See `skills/setup/SKILL.md` for the full workflow and
 `skills/setup/references/` for the stack-detection signals, safeguards
 catalog, and per-mechanism guides it draws on.
