@@ -11,8 +11,11 @@ before assuming.
   is mutable; a SHA is the only immutable reference. Pin with a trailing
   comment naming the version for readability:
   ```yaml
-  - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+  - uses: actions/checkout@<full-commit-sha-of-the-latest-release> # vX.Y.Z
   ```
+  Look up the SHA of the *current* release at setup time (the tag's
+  commit on the action's repo) — don't copy a pinned example from docs or
+  memory, which is how a stale or wrong pin spreads.
 - **Least-privilege `permissions`.** Set a restrictive default at the
   workflow level and grant write scopes only on the specific job that
   needs them:
