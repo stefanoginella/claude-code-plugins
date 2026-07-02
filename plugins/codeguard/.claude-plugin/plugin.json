@@ -1,0 +1,22 @@
+{
+  "name": "codeguard",
+  "description": "Detect a repo's tech stack and set up tailored quality & security safeguards — git hooks, CI, secret/SAST/dependency scanning, and coding standards baked into agent instructions — to prevent AI-generated slop and enforce best practices.",
+  "version": "0.7.1",
+  "author": {
+    "name": "Stefano Ginella",
+    "url": "https://www.stefanoginella.com"
+  },
+  "homepage": "https://github.com/stefanoginella/claude-code-plugins/tree/main/plugins/codeguard",
+  "repository": "https://github.com/stefanoginella/claude-code-plugins",
+  "license": "MIT",
+  "keywords": [
+    "git-hooks",
+    "ci",
+    "pre-commit",
+    "linting",
+    "security",
+    "code-quality",
+    "safeguards",
+    "ai-slop"
+  ]
+}
