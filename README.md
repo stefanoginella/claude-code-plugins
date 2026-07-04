@@ -9,7 +9,7 @@ marketplace by [Stefano Ginella](https://www.stefanoginella.com).
 /plugin marketplace add stefanoginella/claude-code-plugins
 ```
 
-Then install any plugin below with `/plugin install <name>`.
+Then install any plugin below with `/plugin install <name>@stefanoginella-plugins`.
 
 ## Plugins
 
