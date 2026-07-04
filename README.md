@@ -15,8 +15,7 @@ Then install any plugin below with `/plugin install <name>`.
 
 | Plugin | Description |
 |---|---|
-| [`codeguard`](plugins/codeguard) | Hardens a repo against AI slop: detects the stack and sets up tailored git hooks, CI, scanners, and agent-facing coding standards — approval-gated and reversible. |
-| `aicontainer-setup` | Sourced from [stefanoginella/aicontainer](https://github.com/stefanoginella/aicontainer) — sets up the [aicontainer](https://github.com/stefanoginella/aicontainer) devcontainer for a project. |
+| `aicontainer` | Sourced from [stefanoginella/aicontainer](https://github.com/stefanoginella/aicontainer) — sets up the [aicontainer](https://github.com/stefanoginella/aicontainer) devcontainer for a project. |
 
 Each plugin's own README has install/usage details.
 

@@ -7,16 +7,12 @@
   },
   "plugins": [
     {
-      "name": "aicontainer-setup",
+      "name": "aicontainer",
       "source": {
         "source": "git-subdir",
         "url": "https://github.com/stefanoginella/aicontainer.git",
         "path": "tools/claude-plugin"
       }
-    },
-    {
-      "name": "codeguard",
-      "source": "./plugins/codeguard"
     }
   ]
 }
